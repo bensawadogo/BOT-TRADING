@@ -107,6 +107,8 @@ class Config:
     MAX_CONSECUTIVE = int(os.getenv("MAX_CONSECUTIVE", "3"))
     AUTO_STAKE = float(os.getenv("AUTO_STAKE", "2.0"))
     JOURNAL_DB = os.getenv("JOURNAL_DB", "")
+    # auto : drift validé sur BOOM/CRASH, ensemble ailleurs | drift | ensemble
+    STRATEGY = os.getenv("DERIV_STRATEGY", "auto").strip().lower()
 
     @classmethod
     def validate(cls):

@@ -54,24 +54,11 @@ def _binomial_pvalue(n: int, wins: int, p0: float = 0.556) -> float:
     return res.pvalue
 
 
-def detect_spikes_idx(closes: np.ndarray, thr: float,
-                      is_boom: bool) -> np.ndarray:
-    """Indices i où la bougie i-1 → i est un spike (|move| >= thr)."""
-    moves = np.diff(closes) / closes[:-1] * 100.0
-    if is_boom:
-        idx = np.nonzero(moves >= thr)[0] + 1
-    else:
-        idx = np.nonzero(moves <= -thr)[0] + 1
-    return idx
-
-
-def spike_threshold_quantile(closes: np.ndarray, is_boom: bool,
-                             q: float = 0.995, min_thr: float = 0.08) -> float:
-    """Seuil de spike = quantile q de |moves| (évite le bruit du 3×std)."""
-    moves = np.abs(np.diff(closes) / closes[:-1] * 100.0)
-    if moves.size < 50:
-        return min_thr
-    return max(min_thr, float(np.quantile(moves, q)))
+# Source unique partagée avec le bot live (mêmes fonctions → même règle).
+from deriv.strategies.spike_drift_binary import (  # noqa: E402
+    detect_spikes_idx,
+    spike_threshold_quantile,
+)
 
 
 def walk_forward_binaire(df: pd.DataFrame, symbol: str,

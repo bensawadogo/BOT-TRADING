@@ -15,6 +15,8 @@ from __future__ import annotations
 import asyncio
 import logging
 
+import pandas as pd
+
 from deriv.client import DerivConnection
 from deriv.constants import Config
 from deriv.data_collector import DerivDataCollector
@@ -26,6 +28,10 @@ from deriv.telegram import TelegramNotifier
 from deriv.strategies.boom_crash_drift import BoomCrashDriftStrategy
 from deriv.strategies.regime_momentum_strategy import (
     RegimeMomentumStrategy,
+)
+from deriv.strategies.spike_drift_binary import (
+    SpikeDriftBinaryStrategy,
+    closed_candles,
 )
 from deriv.trading_journal import JournalEntry, TradingJournal
 from deriv.weekly_retrain import RetrainScheduler
@@ -81,6 +87,23 @@ class DerivBotExecutor:
             BoomCrashDriftStrategy(symbol=self.SYMBOL)
             if ("BOOM" in sym or "CRASH" in sym) else None
         )
+        # Source de signal : la stratégie VALIDÉE (drift post-spike, Rise/Fall)
+        # sur Boom/Crash ; l'ensemble n'a pas d'edge mesuré (TASKS.md).
+        self.strategy_mode = self.resolve_strategy_mode(Config.STRATEGY, self.SYMBOL)
+        self.drift: SpikeDriftBinaryStrategy | None = None
+        if self.strategy_mode == "drift":
+            self.drift = SpikeDriftBinaryStrategy(symbol=self.SYMBOL)
+            # Expiration = horizon validé (10 bougies), pas DERIV_DUR.
+            self.DURATION = self.drift.contract_duration(self.GRANULARITY)
+
+    @staticmethod
+    def resolve_strategy_mode(mode: str, symbol: str) -> str:
+        """auto → drift sur BOOM/CRASH, ensemble sinon."""
+        mode = (mode or "auto").lower()
+        if mode in ("drift", "ensemble"):
+            return mode
+        sym = symbol.upper()
+        return "drift" if ("BOOM" in sym or "CRASH" in sym) else "ensemble"
 
     @property
     def _telegram_active(self) -> bool:
@@ -173,6 +196,52 @@ class DerivBotExecutor:
         if df_history.empty:
             raise RuntimeError("Impossible de charger l'historique Deriv — "
                                "vérifie le symbole, le token et le réseau.")
+        if self.strategy_mode == "ensemble":
+            await self._prepare_ensemble(df_history)
+
+        # Sans token API, le streaming ticks live est refusé par le serveur :
+        # on bascule en mode 'historique rafraîchi' (cf. _analyse_loop).
+        raw_token = Config.API_TOKEN
+        token_ok = bool(raw_token) and "REMPLACE_PAR_TON_TOKEN" not in raw_token
+        if not token_ok and self.strategy_mode == "ensemble":
+            logger.warning(
+                "DERIV_API_TOKEN manquant ou placeholder : le streaming ticks "
+                "live est indisponible → le bot fonctionne en mode HISTORIQUE "
+                "(rafraîchissement ticks_history à chaque cycle). Configure le "
+                "token API pour le temps réel complet."
+            )
+
+        if self.strategy_mode == "drift":
+            regle = (f"Stratégie : drift post-spike validé (q{self.drift.quantile:g}, "
+                     f"{'PUT' if self.drift.is_boom else 'CALL'} {self.drift.horizon} bougies)")
+        else:
+            regle = ("Modèles actifs : HMM + XGBoost + LSTM + Kalman + RSI "
+                     "+ TrendStrength + Momentum\n"
+                     "Règle : trade seulement si 4 modèles sur 7 sont d'accord")
+        await self._telegram(
+            "🟢 *Bot Deriv démarré*"
+            + (" — DRY-RUN (aucun achat)" if self.dry_run else "") + "\n"
+            f"Symbole : {self.SYMBOL}\n"
+            f"Capital : {self.risk.capital_actuel:.2f}$\n"
+            f"Stake auto max : {self.STAKE_AUTO}$\n"
+            f"Durée contrat : {self.DURATION}s\n"
+            f"{regle}"
+            + ("" if token_ok or self.strategy_mode == "drift"
+               else "\n\n⚠️ Mode HISTORIQUE (token API manquant)")
+        )
+
+        loops = [self._analyse_loop()]
+        if self.strategy_mode == "ensemble":
+            loops.append(self._collect_loop())
+        try:
+            await asyncio.gather(*loops)
+        finally:
+            await self.collector.close()
+            if self.conn is not None:
+                await self.conn.close()
+
+    async def _prepare_ensemble(self, df_history) -> None:
+        """Entraînement, ré-entraînement hebdo et garde-fous de l'ensemble."""
         if not self.ensemble.is_trained():
             logger.info("Premiers entraînements des modèles (historique seulement)...")
             self.ensemble.train_all(df_history)
@@ -205,39 +274,6 @@ class DerivBotExecutor:
                 "Garde-fous anti-leakage en échec au démarrage — bot arrêté. "
                 "Voir les logs DERIV_BOT ci-dessus."
             )
-
-        # Sans token API, le streaming ticks live est refusé par le serveur :
-        # on bascule en mode 'historique rafraîchi' (cf. _analyse_loop).
-        raw_token = Config.API_TOKEN
-        token_ok = bool(raw_token) and "REMPLACE_PAR_TON_TOKEN" not in raw_token
-        if not token_ok:
-            logger.warning(
-                "DERIV_API_TOKEN manquant ou placeholder : le streaming ticks "
-                "live est indisponible → le bot fonctionne en mode HISTORIQUE "
-                "(rafraîchissement ticks_history à chaque cycle). Configure le "
-                "token API pour le temps réel complet."
-            )
-
-        await self._telegram(
-            "🟢 *Bot Deriv démarré*\n"
-            f"Symbole : {self.SYMBOL}\n"
-            f"Capital : {self.risk.capital_actuel:.2f}$\n"
-            f"Stake auto max : {self.STAKE_AUTO}$\n"
-            f"Durée contrat : {self.DURATION}s\n"
-            f"Modèles actifs : HMM + XGBoost + LSTM + Kalman + RSI\n"
-            f"Règle : trade seulement si 4/5 modèles d'accord"
-            + ("" if token_ok else "\n\n⚠️ Mode HISTORIQUE (token API manquant)")
-        )
-
-        try:
-            await asyncio.gather(
-                self._collect_loop(),
-                self._analyse_loop(),
-            )
-        finally:
-            await self.collector.close()
-            if self.conn is not None:
-                await self.conn.close()
 
     def stop(self):
         self._stop = True
@@ -400,6 +436,14 @@ class DerivBotExecutor:
         les DERNIÈRES bougies fermées via ticks_history (1 requête/cycle).
         """
         while not self._stop:
+            if self.strategy_mode == "drift":
+                await self._sleep_until_next_candle()
+                try:
+                    await self._run_drift_cycle()
+                except Exception as exc:
+                    logger.error(f"Cycle drift en erreur : {exc}", exc_info=True)
+                continue
+
             await asyncio.sleep(self.CYCLE_SEC)
 
             df = self.collector.get_dataframe()
@@ -518,13 +562,82 @@ class DerivBotExecutor:
             logger.info(f"DRY-RUN : {contract_type} {self.SYMBOL} non exécuté")
             return
         try:
-            await self._execute_contract(contract_type, df, result)
+            await self._execute_contract(
+                contract_type,
+                journaliser=lambda: self._journaliser_setup(df, result))
         except Exception as exc:
             logger.error(f"Erreur exécution : {exc}", exc_info=True)
             await self._telegram(f"❌ Erreur d'exécution : {exc}")
 
-    async def _execute_contract(self, contract_type: str, df=None,
-                                result: dict | None = None) -> float | None:
+    # ── Stratégie drift validée ─────────────────────────────────────
+    CANDLE_DELAY_SEC = 2   # marge après la clôture pour que Deriv publie la bougie
+
+    async def _sleep_until_next_candle(self) -> None:
+        """Se cale juste après la clôture de la bougie (entrée comme au WFO)."""
+        g = self.GRANULARITY
+        now = pd.Timestamp.now(tz="UTC").timestamp()
+        await asyncio.sleep(g - (now % g) + self.CANDLE_DELAY_SEC)
+
+    async def _run_drift_cycle(self) -> None:
+        """Bougies serveur fermées → règle validée → risque → contrat."""
+        df = await self.collector.get_candle_history(self.drift.min_bars + 1)
+        df = closed_candles(df, self.GRANULARITY)
+        sig = self.drift.evaluate(df)
+        if sig is None:
+            return
+        logger.info(f"Signal drift : {sig.rationale}")
+
+        ok, raison = self.risk.check(self.STAKE_AUTO)
+        if not ok:
+            if "CONFIRMATION_REQUISE" in raison:
+                await self._telegram(f"⚠️ {raison}")
+            else:
+                logger.info(f"Bloqué par Risk Manager : {raison}")
+            return
+
+        await self._telegram(
+            f"{'🔴' if sig.contract_type == 'PUT' else '🟢'} "
+            f"*{sig.contract_type}* — {self.SYMBOL}\n{sig.rationale}\n"
+            f"💰 Stake : {self.STAKE_AUTO}$ | Durée : {self.DURATION}s"
+        )
+        if self.dry_run:
+            logger.info(f"DRY-RUN : {sig.contract_type} {self.SYMBOL} non exécuté")
+            return
+        await self._execute_contract(
+            sig.contract_type, journaliser=lambda: self._journaliser_drift(sig))
+
+    async def _journaliser_drift(self, sig) -> str | None:
+        """Journalise un trade drift (base des 200 trades de démo)."""
+        if self.journal is None:
+            return None
+        try:
+            ts = pd.Timestamp.now(tz="UTC")
+            trade_id = f"{ts.strftime('%Y%m%d_%H%M%S')}_{self.SYMBOL}"
+            entry = JournalEntry(
+                trade_id=trade_id, timestamp_entry=ts.isoformat(),
+                symbol=self.SYMBOL,
+                direction="long" if sig.contract_type == "CALL" else "short",
+                entry_price=sig.entry_price, stop_loss=0.0, take_profit=0.0,
+                risk_reward=0.0, stake=self.STAKE_AUTO,
+                regime="spike_drift", hmm_confidence=0.0, adx=0.0, rsi=50.0,
+                atr=0.0, ema_fast=sig.entry_price, ema_slow=sig.entry_price,
+                volume_ratio=1.0, session=self._get_session(),
+                vote_hmm=0.5, vote_xgboost=0.5, vote_lstm=0.5, vote_kalman=0.5,
+                vote_rsi=0.5, vote_trend=0.5, vote_momentum=0.5,
+                ensemble_votes=0, ensemble_signal="DRIFT",
+                strategy_phase="spike_drift_binary", pullback_candles=0,
+                rationale=sig.rationale,
+                spread_cost_pct=0.0,   # PnL Deriv d'un Rise/Fall déjà net
+            )
+            self.journal.log_entry(entry)
+            self.open_trades[trade_id] = {"entry": entry}
+            return trade_id
+        except Exception:
+            logger.warning("Journalisation drift ignorée", exc_info=True)
+            return None
+
+    async def _execute_contract(self, contract_type: str,
+                                journaliser=None) -> float | None:
         """Achète, journalise, attend le règlement puis clôture CE trade.
 
         Ordre important : le journal est écrit après l'achat confirmé et
@@ -539,9 +652,7 @@ class DerivBotExecutor:
                                  "— aucun contrat, rien n'est compté")
             return None
 
-        trade_id = None
-        if df is not None and result is not None:
-            trade_id = await self._journaliser_setup(df, result)
+        trade_id = await journaliser() if journaliser is not None else None
 
         pnl = await self._wait_settlement(contract_id)
         await self._close_trade(contract_type, trade_id, pnl)

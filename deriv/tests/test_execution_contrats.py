@@ -38,16 +38,17 @@ def _bot(monkeypatch, *, proposal_ok=True, contract_id=123, etats=()):
         trading=SimpleNamespace(proposal=proposal, buy=buy),
         contract=SimpleNamespace(get=get)))
 
-    async def journaliser(df, result):
-        bot.open_trades["T1"] = {"entry": None}
-        return "T1"
-
-    monkeypatch.setattr(bot, "_journaliser_setup", journaliser)
     return bot
 
 
+async def _journaliser(bot):
+    bot.open_trades["T1"] = {"entry": None}
+    return "T1"
+
+
 def run(bot):
-    return asyncio.run(bot._execute_contract("CALL", df=object(), result={}))
+    return asyncio.run(bot._execute_contract(
+        "CALL", journaliser=lambda: _journaliser(bot)))
 
 
 def test_achat_refuse_ne_compte_aucun_trade(monkeypatch):
