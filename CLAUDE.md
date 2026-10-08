@@ -9,7 +9,7 @@
 
 Ce projet est un écosystème de **bot de trading algorithmique et quantitatif** multi-marchés (Deriv Synthetics, Forex, Crypto) orienté Machine Learning :
 - **Deriv (Synthetics & Forex)** : Cœur opérationnel actuel (`deriv/`).
-- **Stratégie de trading active** : drift post-spike BOOM/CRASH en Rise/Fall (`deriv/strategies/spike_drift_binary.py`), seule règle avec un edge probable (62,5 % sur 104 trades OOS, p = 0,09). Sélection par `DERIV_STRATEGY=auto` (drift sur BOOM/CRASH, ensemble ailleurs).
+- **⚠️ Audit du 08/10/2026 (`docs/reports/AUDIT_BOOM_CRASH_2026-10-08.md`)** : la stratégie drift BOOM/CRASH n'a **aucun edge** (le signal ne bat pas le taux de base) et le contrat Rise/Fall **n'existe pas** sur Boom/Crash (Multipliers/Accumulators seulement, perdants avec coûts réels). Ne pas la trader. L'ancien endpoint Deriv (`ws.derivws.com`) ne répond plus : migrer le client vers `api.derivws.com` avant tout trading.
 - **Intelligence Artificielle & ML** : HMM (Hidden Markov Models), XGBoost, LSTM, filtres de Kalman, TrendStrength, Momentum et RSI — **7 modèles**, trade si **au moins 4 d'accord** (`MIN_VOTES_TO_TRADE = 4`, donc 4/7). Aucun edge mesuré en WFO : l'ensemble n'est plus la source de signal sur BOOM/CRASH.
 - **Validation Statistique** : Walk-Forward Optimization (WFO), CPCV (Combinatorial Purged Cross-Validation), détection de data leakage.
 - **Gestion du Risque** : `RiskManager` dynamique, Safe Stake, Daily Stop, arrêt après séries de pertes.
@@ -132,7 +132,7 @@ Prérequis : **Python ≥ 3.12**, `pip install -r requirements.txt`, et `deriv-s
 ## 📋 6. Prochaines étapes / Roadmap en cours
 
 Se référer en priorité à `TASKS.md` et `state.json` :
-0. **Démo BOOM500 drift (priorité)** : `main.py deriv --live` sur compte DEMO jusqu'à 200 trades, puis `deriv/demo_report.py`. Passage en réel uniquement si p < 0,05 ET borne basse de Wilson > seuil de rentabilité (calculé sur les vrais payouts).
+0. **Démo BOOM500 drift : ABANDONNÉE** (audit du 08/10/2026). Toute nouvelle stratégie doit d'abord battre le **taux de base** (minute quelconque) sur données réelles, avec les coûts réels du contrat réellement disponible (`scripts/audit_boom_crash.py` comme modèle).
 1. **Forward Demo & Calibrage Réel** : Amélioration de la stratégie sur Forex réels (`frxEURUSD`, `frxUSDJPY`, `frxEURGBP`) et indices de volatilité (`R_50`, `R_75`), car le test sur `CRASH500 M1` a révélé l'absence d'edge exploitable en raison du spread et du drift asymétrique.
 2. **Dashboard Streamlit** : Poursuivre le monitoring en direct des positions, des métriques de régimes HMM et de la synchronisation avec `trading_journal.db`.
 3. **Validation Anti-Leakage continue** : S'assurer que chaque nouvelle feature passe la validation `deriv/tests/test_anti_leakage.py`.
