@@ -79,3 +79,24 @@ def test_bougie_en_cours_retiree():
     assert list(closed_candles(df, 60, now).index) == [idx[0]]
     now = pd.Timestamp("2026-01-01 10:02:00", tz="UTC")
     assert len(closed_candles(df, 60, now)) == 2
+
+
+def test_validation_rolling_rejoue_exactement_le_live():
+    """walk_forward_rolling = ce que le bot achète, spike par spike."""
+    from deriv.strategies.spike_drift_binary import MAX_OPEN_CONTRACTS
+    from deriv.validate_boom_crash_big import walk_forward_rolling
+
+    df = _serie_boom(n=4000)
+    res = walk_forward_rolling(df, "BOOM500", max_open=MAX_OPEN_CONTRACTS)
+
+    # Simulation indépendante du bot : evaluate() à chaque bougie + limite
+    strat = SpikeDriftBinaryStrategy("BOOM500")
+    closes = df["close"].to_numpy()
+    ouverts, gains, n = [], 0, 0
+    for i in range(1500, len(df) - 10):
+        ouverts = [f for f in ouverts if f > i]
+        if strat.evaluate(df.iloc[:i + 1]) and len(ouverts) < MAX_OPEN_CONTRACTS:
+            ouverts.append(i + 10)
+            n += 1
+            gains += closes[i + 10] < closes[i]
+    assert res["n_trades"] == n and res["n_wins"] == gains and n >= 5

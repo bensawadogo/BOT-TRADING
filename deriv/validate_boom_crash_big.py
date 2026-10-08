@@ -56,6 +56,11 @@ def _binomial_pvalue(n: int, wins: int, p0: float = 0.556) -> float:
 
 # Source unique partagée avec le bot live (mêmes fonctions → même règle).
 from deriv.strategies.spike_drift_binary import (  # noqa: E402
+    CALIB_WINDOW,
+    HORIZON,
+    MAX_OPEN_CONTRACTS,
+    QUANTILE,
+    SpikeDriftBinaryStrategy,
     detect_spikes_idx,
     spike_threshold_quantile,
 )
@@ -135,6 +140,63 @@ def walk_forward_binaire(df: pd.DataFrame, symbol: str,
     }
 
 
+def walk_forward_rolling(df: pd.DataFrame, symbol: str,
+                         quantile: float = QUANTILE,
+                         calib_window: int = CALIB_WINDOW,
+                         horizon: int = HORIZON,
+                         max_open: int = MAX_OPEN_CONTRACTS,
+                         fold_size: int = 1500) -> dict:
+    """Rejoue la RÈGLE LIVE bougie par bougie (même objet que le bot).
+
+    Seuil recalculé à chaque bougie sur les `calib_window` précédentes,
+    au plus `max_open` contrats simultanés : c'est exactement ce que trade
+    deriv/bot_executor.py. Les folds (blocs de `fold_size` bougies) ne
+    servent qu'à mesurer la stabilité (σ) du WR.
+    """
+    closes = df["close"].to_numpy(dtype=float)
+    n = len(closes)
+    strat = SpikeDriftBinaryStrategy(symbol, quantile=quantile,
+                                     calib_window=calib_window, horizon=horizon)
+    is_boom = strat.is_boom
+    fins_ouvertes: list[int] = []        # index d'expiration des contrats ouverts
+    trades: list[tuple[int, bool]] = []
+    for i in range(strat.min_bars - 1, n - horizon):
+        fins_ouvertes = [f for f in fins_ouvertes if f > i]
+        sig = strat.evaluate(df.iloc[i - strat.min_bars + 1: i + 1])
+        if sig is None or len(fins_ouvertes) >= max_open:
+            continue
+        fins_ouvertes.append(i + horizon)
+        diff = closes[i + horizon] - closes[i]
+        trades.append((i, bool(diff < 0) if is_boom else bool(diff > 0)))
+
+    if not trades:
+        return {"n_trades": 0, "win_rate": 0.0, "message": "Aucun trade"}
+    wins = sum(w for _, w in trades)
+    tot = len(trades)
+    folds: dict[int, list[bool]] = {}
+    for i, w in trades:
+        folds.setdefault(i // fold_size, []).append(w)
+    wr_par_fold = [
+        {"fold": k + 1, "n_trades": len(v), "win_rate": round(sum(v) / len(v), 4),
+         "thr": float("nan")}
+        for k, v in sorted(folds.items()) if len(v) >= 5
+    ]
+    lo, hi = _wilson(tot, wins)
+    return {
+        "n_trades": tot,
+        "n_wins": wins,
+        "win_rate": round(wins / tot, 4),
+        "wilson_lo": round(lo, 4),
+        "wilson_hi": round(hi, 4),
+        "p_value": round(float(_binomial_pvalue(tot, wins)), 4),
+        "n_folds": len(wr_par_fold),
+        "win_rate_std": round(float(np.std([f["win_rate"] for f in wr_par_fold]))
+                              if wr_par_fold else 0.0, 4),
+        "wr_par_fold": wr_par_fold,
+        "breakeven": 0.556,
+    }
+
+
 async def main():
     p = argparse.ArgumentParser()
     p.add_argument("--symbol", default="CRASH500",
@@ -145,9 +207,12 @@ async def main():
                    help="expiration (bougies) du contrat binaire")
     p.add_argument("--fold", type=int, default=1500,
                    help="taille de segment pour le WFO")
-    p.add_argument("--quantile", type=float, default=0.995,
+    p.add_argument("--quantile", type=float, default=QUANTILE,
                    help="quantile des |moves| pour le seuil de spike "
-                        "(0.995 = strict, 0.99 = plus de trades)")
+                        "(défaut = celui du bot live)")
+    p.add_argument("--mode", choices=["rolling", "fold"], default="rolling",
+                   help="rolling = règle EXACTE du bot live (défaut) ; "
+                        "fold = seuil figé par bloc (méthode du WFO du 13/09)")
     args = p.parse_args()
 
     from deriv.data_collector import DerivDataCollector
@@ -159,12 +224,17 @@ async def main():
     df = await collector.get_candle_history_full(args.count)
     print(f"Données chargées : {len(df)} bougies\n")
 
-    result = walk_forward_binaire(df, args.symbol,
-                                  fold_size=args.fold, horizon=args.horizon,
-                                  quantile=args.quantile)
+    if args.mode == "rolling":
+        result = walk_forward_rolling(df, args.symbol, quantile=args.quantile,
+                                      horizon=args.horizon, fold_size=args.fold)
+    else:
+        result = walk_forward_binaire(df, args.symbol,
+                                      fold_size=args.fold, horizon=args.horizon,
+                                      quantile=args.quantile)
 
     print("=" * 66)
-    print(f"WALK-FORWARD BINAIRE — {args.symbol} (horizon {args.horizon})")
+    print(f"WALK-FORWARD BINAIRE ({args.mode}) — {args.symbol} "
+          f"(horizon {args.horizon}, q{args.quantile:g})")
     print("=" * 66)
     if result.get("n_trades", 0) == 0:
         print(result.get("message", "Aucun trade"))
@@ -180,8 +250,9 @@ async def main():
     print("\nDétail par fold (seuil calibré sur train) :")
     for f in result["wr_par_fold"]:
         bar = "🟢" if f["win_rate"] >= result["breakeven"] else "🔴"
+        seuil = "glissant" if f["thr"] != f["thr"] else f"{f['thr']:.2f}%"
         print(f"  Fold {f['fold']:2d}: {bar} {f['win_rate']:.1%} "
-              f"({f['n_trades']} trades, seuil {f['thr']:.2f}%)")
+              f"({f['n_trades']} trades, seuil {seuil})")
     print("=" * 66)
 
     wr = result["win_rate"]

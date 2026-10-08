@@ -231,6 +231,19 @@ class DerivConnection:
             logger.error("Deriv ping failed: %s", exc)
             return {}
 
+    async def server_time(self) -> float | None:
+        """Epoch du serveur Deriv (None si indisponible)."""
+        try:
+            res = await self.client.request_engine.send({"time": 1})
+        except Exception as exc:
+            logger.warning("Heure serveur Deriv indisponible : %s", exc)
+            return None
+        t = res.get("time") if isinstance(res, dict) else getattr(res, "time", None)
+        try:
+            return float(t)
+        except (TypeError, ValueError):
+            return None
+
     async def fetch_loginid(self) -> str | None:
         """loginid du compte RÉELLEMENT autorisé par le token (None si inconnu)."""
         try:

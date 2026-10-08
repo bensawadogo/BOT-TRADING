@@ -85,6 +85,8 @@ C:\BOT-TRADING\
 ### 4.3. Le live doit trader ce qui a été validé
 - La règle de trading vit à **un seul endroit** (`deriv/strategies/spike_drift_binary.py`) et la validation (`deriv/validate_boom_crash_big.py`) importe les mêmes fonctions. Ne jamais dupliquer la règle.
 - Bougies live = granularité de validation (`DERIV_GRANULARITY`), jamais la durée du contrat.
+- `python deriv/validate_boom_crash_big.py --symbol BOOM500` (mode `rolling`, défaut) rejoue **la règle exacte du live** : seuil glissant q0,99, contrats simultanés plafonnés. Le chiffre historique de 62,5 % a été mesuré en mode `fold` (seuil figé par bloc) : relancer le mode `rolling` sur données réelles avant la démo.
+- La clôture des bougies se juge sur l'heure du **serveur** Deriv, jamais sur l'horloge du PC.
 - `deriv/strategies/boom_crash_drift.py` (seuil 3×std, SL/TP) n'a jamais été validée : ne pas la brancher sur l'exécution.
 
 ### 4.4. Sécurité & Sérialisation

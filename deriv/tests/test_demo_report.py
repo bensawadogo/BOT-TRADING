@@ -51,3 +51,12 @@ def test_lit_le_journal_reel(tmp_path):
         journal.log_exit_contract(f"T{i}", pnl_dollar=pnl)
     r = dr.main(["--db", db, "--symbol", "BOOM500"])
     assert r["n_trades"] == 3 and r["n_wins"] == 2
+
+
+def test_inconnus_et_non_clotures_exclus_du_verdict():
+    trades = _trades(60, 40) + [(-2.0, 2.0, "contract_id=9 | résultat inconnu")] * 5 \
+        + [(None, 2.0, "")] * 2
+    r = dr.verdict(trades)
+    assert r["n_trades"] == 100 and r["n_wins"] == 60    # inconnus non comptés perdus
+    assert r["resultats_inconnus"] == 5 and r["non_clotures"] == 2
+    assert r["contrats_a_verifier"][0].startswith("contract_id=9")

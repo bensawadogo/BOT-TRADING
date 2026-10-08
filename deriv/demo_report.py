@@ -10,6 +10,10 @@ VRAIS payouts Deriv (pas une constante) :
 Passage en réel seulement si : ≥ 200 trades ET p < 0.05 ET borne basse de
 Wilson (95 %) > seuil. La décision reste humaine (DERIV_ALLOW_REAL).
 
+Les trades au résultat INCONNU (coupure pendant le règlement) sont exclus des
+statistiques — les compter perdus fausserait le verdict — mais signalés, avec
+leur contract_id pour vérification manuelle sur Deriv.
+
 Usage : python deriv/demo_report.py [--db chemin.db] [--symbol BOOM500]
 """
 from __future__ import annotations
@@ -46,8 +50,9 @@ def p_value(n: int, wins: int, p0: float) -> float:
 
 
 def charger_trades(db_path: str, symbol: str | None = None) -> list[tuple]:
+    """(pnl_dollar, stake, notes) ; pnl_dollar None = trade jamais clôturé."""
     sql = ("SELECT pnl_dollar, stake, COALESCE(notes, '') FROM trades "
-           "WHERE strategy_phase = ? AND pnl_dollar IS NOT NULL")
+           "WHERE strategy_phase = ?")
     args: list = [PHASE]
     if symbol:
         sql += " AND symbol = ?"
@@ -56,7 +61,14 @@ def charger_trades(db_path: str, symbol: str | None = None) -> list[tuple]:
         return conn.execute(sql, args).fetchall()
 
 
+def _inconnu(note: str) -> bool:
+    return "inconnu" in note
+
+
 def verdict(trades: list[tuple]) -> dict:
+    inconnus = [t for t in trades if t[0] is not None and _inconnu(t[2])]
+    non_clotures = [t for t in trades if t[0] is None]
+    trades = [t for t in trades if t[0] is not None and not _inconnu(t[2])]
     n = len(trades)
     gains = [(p, s) for p, s, _ in trades if p > 0]
     wins = len(gains)
@@ -81,7 +93,9 @@ def verdict(trades: list[tuple]) -> dict:
         "payout_moyen": payout, "seuil_rentabilite": seuil,
         "wilson_lo": lo, "wilson_hi": hi, "p_value": pv,
         "pnl_total": sum(p for p, _, _ in trades),
-        "resultats_inconnus": sum(1 for *_, note in trades if "inconnu" in note),
+        "resultats_inconnus": len(inconnus),
+        "contrats_a_verifier": [note for *_, note in inconnus],
+        "non_clotures": len(non_clotures),
         "decision": decision,
     }
 
@@ -102,7 +116,12 @@ def main(argv: list[str] | None = None) -> dict:
     print("=" * 60)
     print(f"DÉMO STRATÉGIE DRIFT {args.symbol or ''}".strip())
     print("=" * 60)
-    print(f"Trades clôturés     : {r['n_trades']} ({r['resultats_inconnus']} résultat(s) inconnu(s))")
+    print(f"Trades comptés      : {r['n_trades']}")
+    if r["resultats_inconnus"] or r["non_clotures"]:
+        print(f"Exclus              : {r['resultats_inconnus']} résultat(s) inconnu(s), "
+              f"{r['non_clotures']} non clôturé(s) — à vérifier sur Deriv :")
+        for note in r["contrats_a_verifier"]:
+            print(f"   - {note}")
     print(f"Taux de réussite    : {r['win_rate']:.1%}  [Wilson 95 % : "
           f"{r['wilson_lo']:.1%} – {r['wilson_hi']:.1%}]")
     print(f"Payout moyen        : {payout}  → seuil de rentabilité {r['seuil_rentabilite']:.1%}")

@@ -30,6 +30,7 @@ from deriv.strategies.regime_momentum_strategy import (
     RegimeMomentumStrategy,
 )
 from deriv.strategies.spike_drift_binary import (
+    MAX_OPEN_CONTRACTS,
     SpikeDriftBinaryStrategy,
     closed_candles,
 )
@@ -53,6 +54,8 @@ class DerivBotExecutor:
         # aucun contrat n'est acheté — mode papier.
         self.dry_run = dry_run
         self._risk_blocked = False   # alerte Telegram une fois par blocage
+        self._open_contracts: set[asyncio.Task] = set()
+        self._clock_offset = 0.0     # heure serveur Deriv − heure locale (s)
         self.conn: DerivConnection | None = None
         self.ensemble = EnsemblePredictor()
         self.collector: DerivDataCollector | None = None
@@ -238,6 +241,9 @@ class DerivBotExecutor:
         try:
             await asyncio.gather(*loops)
         finally:
+            # Laisse les contrats ouverts se régler et se journaliser.
+            if self._open_contracts:
+                await asyncio.gather(*self._open_contracts, return_exceptions=True)
             await self.collector.close()
             if self.conn is not None:
                 await self.conn.close()
@@ -603,25 +609,59 @@ class DerivBotExecutor:
             await self._telegram(f"❌ Erreur d'exécution : {exc}")
 
     # ── Stratégie drift validée ─────────────────────────────────────
-    CANDLE_DELAY_SEC = 2   # marge après la clôture pour que Deriv publie la bougie
+    CANDLE_DELAY_SEC = 2     # marge après la clôture pour que Deriv publie la bougie
+    CLOCK_SAFETY_SEC = 5     # sans heure serveur : horloge locale supposée en avance
+    FETCH_RETRIES = 3        # nouvelle bougie pas encore publiée → on réessaie
+    FETCH_RETRY_SEC = 3
+
+    async def _server_now(self) -> pd.Timestamp:
+        """Heure du serveur Deriv (la clôture des bougies se juge sur SON horloge)."""
+        local = pd.Timestamp.now(tz="UTC")
+        server = None
+        if self.conn is not None and hasattr(self.conn, "server_time"):
+            server = await self.conn.server_time()
+        if server is None:
+            return local - pd.Timedelta(seconds=self.CLOCK_SAFETY_SEC)
+        self._clock_offset = server - local.timestamp()
+        return pd.Timestamp(server, unit="s", tz="UTC")
 
     async def _sleep_until_next_candle(self) -> None:
-        """Se cale juste après la clôture de la bougie (entrée comme au WFO)."""
+        """Se cale juste après la clôture de la bougie (heure serveur)."""
         g = self.GRANULARITY
-        now = pd.Timestamp.now(tz="UTC").timestamp()
+        now = pd.Timestamp.now(tz="UTC").timestamp() + self._clock_offset
         await asyncio.sleep(g - (now % g) + self.CANDLE_DELAY_SEC)
 
-    async def _run_drift_cycle(self) -> None:
-        """Bougies serveur fermées → règle validée → risque → contrat."""
-        df = await self.collector.get_candle_history(self.drift.min_bars + 1)
-        df = closed_candles(df, self.GRANULARITY)
+    async def _fresh_closed_candles(self) -> pd.DataFrame:
+        """Bougies FERMÉES (heure serveur), en attendant la nouvelle si besoin."""
+        df = pd.DataFrame()
+        for essai in range(self.FETCH_RETRIES):
+            df = await self.collector.get_candle_history(self.drift.min_bars + 1)
+            df = closed_candles(df, self.GRANULARITY, await self._server_now())
+            if df is not None and len(df) and df.index[-1] != self.drift._last_evaluated:
+                return df
+            if essai < self.FETCH_RETRIES - 1:
+                await asyncio.sleep(self.FETCH_RETRY_SEC)
+        return df
+
+    async def _run_drift_cycle(self) -> asyncio.Task | None:
+        """Bougies serveur fermées → règle validée → risque → contrat.
+
+        Le contrat tourne en tâche de fond : l'analyse continue pendant ses
+        10 minutes (la validation compte AUSSI les spikes rapprochés), dans
+        la limite de MAX_OPEN_CONTRACTS contrats simultanés.
+        Retourne la tâche du contrat lancé (None sinon).
+        """
+        df = await self._fresh_closed_candles()
         sig = self.drift.evaluate(df)
         if sig is None:
-            return
+            return None
         logger.info(f"Signal drift : {sig.rationale}")
 
         if not await self._risk_ok():
-            return
+            return None
+        if len(self._open_contracts) >= MAX_OPEN_CONTRACTS:
+            logger.info(f"Spike ignoré : {MAX_OPEN_CONTRACTS} contrats déjà ouverts")
+            return None
 
         await self._telegram(
             f"{'🔴' if sig.contract_type == 'PUT' else '🟢'} "
@@ -630,9 +670,17 @@ class DerivBotExecutor:
         )
         if self.dry_run:
             logger.info(f"DRY-RUN : {sig.contract_type} {self.SYMBOL} non exécuté")
-            return
-        await self._execute_contract(
-            sig.contract_type, journaliser=lambda: self._journaliser_drift(sig))
+            return None
+        task = asyncio.create_task(self._execute_contract(
+            sig.contract_type, journaliser=lambda: self._journaliser_drift(sig)))
+        self._open_contracts.add(task)
+        task.add_done_callback(self._contract_done)
+        return task
+
+    def _contract_done(self, task: asyncio.Task) -> None:
+        self._open_contracts.discard(task)
+        if not task.cancelled() and task.exception() is not None:
+            logger.error("Contrat en erreur", exc_info=task.exception())
 
     async def _journaliser_drift(self, sig) -> str | None:
         """Journalise un trade drift (base des 200 trades de démo)."""
@@ -683,7 +731,7 @@ class DerivBotExecutor:
         trade_id = await journaliser() if journaliser is not None else None
 
         pnl = await self._wait_settlement(contract_id)
-        await self._close_trade(contract_type, trade_id, pnl)
+        await self._close_trade(contract_type, trade_id, pnl, contract_id)
         return pnl
 
     async def _buy_contract(self, contract_type: str) -> int | None:
@@ -746,7 +794,7 @@ class DerivBotExecutor:
         return None
 
     async def _close_trade(self, contract_type: str, trade_id: str | None,
-                           pnl: float | None) -> None:
+                           pnl: float | None, contract_id: int | None = None) -> None:
         """Met à jour risque, journal, apprentissage online et Telegram."""
         known = pnl is not None
         # Résultat inconnu : compté comme perte de la mise côté risque (prudent).
@@ -760,9 +808,12 @@ class DerivBotExecutor:
 
         if self.journal is not None and trade_id in self.open_trades:
             try:
+                notes = f"contract_id={contract_id}" if contract_id else ""
+                if not known:
+                    # Marqueur lu par demo_report : exclu du verdict.
+                    notes = (notes + " | " if notes else "") + "résultat inconnu"
                 exit_res = self.journal.log_exit_contract(
-                    trade_id, pnl_dollar=risk_pnl,
-                    notes="" if known else "résultat inconnu : perte présumée")
+                    trade_id, pnl_dollar=risk_pnl, notes=notes)
                 # V2 — BOUCLE FERMÉE : le modèle online apprend du trade
                 # clôturé (uniquement si le résultat est réellement connu).
                 entry = self.open_trades[trade_id].get("entry")

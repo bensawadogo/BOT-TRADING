@@ -27,10 +27,11 @@ QUANTILE = 0.99          # q99 : meilleur compromis trades / WR mesuré
 CALIB_WINDOW = 1500      # = fold_size du walk-forward
 HORIZON = 10             # bougies jusqu'à l'expiration
 MIN_THRESHOLD_PCT = 0.08
+MAX_OPEN_CONTRACTS = 3   # contrats simultanés max (spikes en grappe)
 
 
 def spike_threshold_quantile(closes: np.ndarray, is_boom: bool = True,
-                             q: float = 0.995,
+                             q: float = QUANTILE,
                              min_thr: float = MIN_THRESHOLD_PCT) -> float:
     """Seuil de spike = quantile q de |moves| en % (évite le bruit du 3×std).
 

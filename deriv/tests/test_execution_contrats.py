@@ -70,7 +70,7 @@ def test_attend_le_reglement_et_cloture_son_propre_trade(monkeypatch):
         SimpleNamespace(is_sold=1, profit=-2.0),  # réglé : perte
     ])
     assert run(bot) == -2.0
-    assert bot.journal.exits == [("T1", -2.0, "")]
+    assert bot.journal.exits == [("T1", -2.0, "contract_id=123")]
     assert bot.risk.total_trades == 1 and bot.risk.consecutive_loss == 1
     assert bot.open_trades == {}
 
@@ -80,4 +80,5 @@ def test_resultat_inconnu_compte_comme_perte(monkeypatch):
     assert run(bot) is None
     assert bot.risk.consecutive_loss == 1      # prudence : perte de la mise
     trade_id, pnl, notes = bot.journal.exits[0]
-    assert trade_id == "T1" and pnl == pytest.approx(-bot.STAKE_AUTO) and notes
+    assert trade_id == "T1" and pnl == pytest.approx(-bot.STAKE_AUTO)
+    assert "inconnu" in notes and "contract_id=123" in notes
