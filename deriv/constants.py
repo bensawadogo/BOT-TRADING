@@ -5,6 +5,17 @@ Les autres modules doivent IMPORTER depuis ce fichier.
 """
 from __future__ import annotations
 import os
+from pathlib import Path
+
+# .env chargé ICI, avant la classe Config : ses attributs sont lus à l'import.
+# (Avant, load_dotenv() était appelé après coup → token, symbole, capital du
+# .env ignorés.) Les tests désactivent ce chargement (BOT_SKIP_DOTENV=1).
+if os.getenv("BOT_SKIP_DOTENV") != "1":
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=False)
+    except ImportError:
+        pass
 
 BREAKEVEN = 0.556
 BREAKEVEN_WINRATE = 55.6

@@ -9,6 +9,9 @@ import sys
 
 import pytest
 
+# Les tests ne lisent jamais le .env local (valeurs par défaut reproductibles).
+os.environ["BOT_SKIP_DOTENV"] = "1"
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)

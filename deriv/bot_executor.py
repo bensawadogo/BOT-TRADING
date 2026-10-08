@@ -42,7 +42,10 @@ class DerivBotExecutor:
     STAKE_AUTO = Config.AUTO_STAKE  # bot-specific, < Config.AUTO_MAX_STAKE
     CYCLE_SEC = Config.CYCLE_SEC             # analyse / min
 
-    def __init__(self, capital_usd: float | None = None):
+    def __init__(self, capital_usd: float | None = None, dry_run: bool = False):
+        # dry_run : tout le pipeline tourne (signal, risque, Telegram) mais
+        # aucun contrat n'est acheté — mode papier.
+        self.dry_run = dry_run
         self.conn: DerivConnection | None = None
         self.ensemble = EnsemblePredictor()
         self.collector: DerivDataCollector | None = None
@@ -506,6 +509,9 @@ class DerivBotExecutor:
 
         # Exécution du contrat
         contract_type = "CALL" if result["signal"] == "BUY" else "PUT"
+        if self.dry_run:
+            logger.info(f"DRY-RUN : {contract_type} {self.SYMBOL} non exécuté")
+            return
         try:
             await self._execute_contract(contract_type)
         except Exception as exc:
@@ -608,11 +614,12 @@ class DerivBotExecutor:
         """Delegation vers TelegramNotifier."""
         await self.telegram.send(msg)
 
-async def main() -> None:
-    """Point d'entrée : lancer le bot avec le capital du .env."""
-    from dotenv import load_dotenv
-    load_dotenv()
-    bot = DerivBotExecutor()
+async def main(dry_run: bool = False) -> None:
+    """Point d'entrée : lancer le bot avec le capital du .env.
+
+    Le .env est chargé par deriv.constants (avant la lecture de Config).
+    """
+    bot = DerivBotExecutor(dry_run=dry_run)
     await bot.start()
 
 
