@@ -275,10 +275,13 @@ class DerivBotExecutor:
             return 0.5
 
     # ── Journalisation d'un setup validé (ensemble 4/5 + stratégie) ─
-    async def _journaliser_setup(self, df, result: dict) -> None:
-        """Loggue le trade dans le journal SQLite (no-op si indisponible)."""
+    async def _journaliser_setup(self, df, result: dict) -> str | None:
+        """Loggue le trade dans le journal SQLite (no-op si indisponible).
+
+        Retourne le trade_id journalisé (None si journal indisponible).
+        """
         if self.journal is None:
-            return
+            return None
         try:
             import pandas as pd
 
@@ -355,9 +358,11 @@ class DerivBotExecutor:
             self.journal.log_entry(entry)
             self.open_trades[trade_id] = {"entry": entry}
             logger.info(f"Trade journalisé : {trade_id} | {rationale[:100]}")
+            return trade_id
         except Exception:
             logger.warning("Journalisation ignorée (erreur non bloquante)",
                            exc_info=True)
+            return None
 
     # ── Boucles principales ─────────────────────────────────────────
     async def _collect_loop(self):
@@ -513,83 +518,135 @@ class DerivBotExecutor:
             logger.info(f"DRY-RUN : {contract_type} {self.SYMBOL} non exécuté")
             return
         try:
-            await self._execute_contract(contract_type)
+            await self._execute_contract(contract_type, df, result)
         except Exception as exc:
             logger.error(f"Erreur exécution : {exc}", exc_info=True)
             await self._telegram(f"❌ Erreur d'exécution : {exc}")
 
-        # Journalisation du setup (mission edge) — APRES execution
-        await self._journaliser_setup(df, result)
+    async def _execute_contract(self, contract_type: str, df=None,
+                                result: dict | None = None) -> float | None:
+        """Achète, journalise, attend le règlement puis clôture CE trade.
 
-    async def _execute_contract(self, contract_type: str):
-        """Place le contrat Deriv et enregistre le résultat côté RiskManager."""
-        proposal = await self.conn.client.trading.proposal(
-            contract_type=contract_type,
-            symbol=self.SYMBOL,
-            amount=self.STAKE_AUTO,
-            basis="stake",
-            duration=self.DURATION,
-            duration_unit="s",
-            currency="USD",
-        )
+        Ordre important : le journal est écrit après l'achat confirmé et
+        clôturé avec le PnL de SON contrat (avant : écrit après coup, puis
+        clôturé avec le PnL du trade suivant ; un achat raté comptait 0 $,
+        soit une victoire pour le RiskManager).
+        Retourne le PnL réglé, ou None si rien n'a été acheté / résultat inconnu.
+        """
+        contract_id = await self._buy_contract(contract_type)
+        if contract_id is None:
+            await self._telegram(f"❌ Achat {contract_type} {self.SYMBOL} échoué "
+                                 "— aucun contrat, rien n'est compté")
+            return None
 
-        buy_resp = await self.conn.client.trading.buy(
-            buy=proposal.proposal.id,
-            price=proposal.proposal.ask_price,
-        )
+        trade_id = None
+        if df is not None and result is not None:
+            trade_id = await self._journaliser_setup(df, result)
 
-        contract_id = int(getattr(buy_resp, "contract_id", 0))
+        pnl = await self._wait_settlement(contract_id)
+        await self._close_trade(contract_type, trade_id, pnl)
+        return pnl
+
+    async def _buy_contract(self, contract_type: str) -> int | None:
+        """Proposal + achat. Retourne l'id du contrat, ou None si non acheté."""
+        try:
+            proposal = await self.conn.client.trading.proposal(
+                contract_type=contract_type,
+                symbol=self.SYMBOL,
+                amount=self.STAKE_AUTO,
+                basis="stake",
+                duration=self.DURATION,
+                duration_unit="s",
+                currency="USD",
+            )
+            if proposal is None or not getattr(proposal.proposal, "id", None):
+                logger.error("Proposal Deriv refusée ou vide")
+                return None
+            buy_resp = await self.conn.client.trading.buy(
+                buy=proposal.proposal.id,
+                price=proposal.proposal.ask_price,
+            )
+            contract_id = int(getattr(buy_resp, "contract_id", 0) or 0)
+        except Exception as exc:
+            logger.error(f"Erreur d'achat : {exc}", exc_info=True)
+            return None
+        if not contract_id:
+            logger.error("Achat Deriv sans contract_id — considéré comme non acheté")
+            return None
         logger.info(
             f"Contrat acheté : {contract_type} {self.SYMBOL} "
             f"{self.STAKE_AUTO}$ / {self.DURATION}s (id={contract_id})"
         )
+        return contract_id
 
-        # Attend la fin du contrat + marge de sécurité
-        await asyncio.sleep(self.DURATION + 5)
+    SETTLE_RETRIES = 10
+    SETTLE_POLL_SEC = 3
 
-        # Récupère le résultat via proposal_open_contract
-        pnl = 0.0
-        if contract_id:
-            contract = await self.conn.client.contract.get(
-                contract_id=contract_id
-            )
-            pnl = float(getattr(contract, "profit", 0.0))
+    async def _wait_settlement(self, contract_id: int) -> float | None:
+        """Attend l'expiration puis interroge jusqu'au règlement du contrat."""
+        await asyncio.sleep(self.DURATION + 2)
+        for _ in range(self.SETTLE_RETRIES):
+            try:
+                contract = await self.conn.client.contract.get(
+                    contract_id=contract_id
+                )
+            except Exception as exc:
+                logger.warning(f"Lecture du contrat {contract_id} : {exc}")
+                contract = None
+            if contract is not None:
+                is_sold = getattr(contract, "is_sold", None)
+                status = str(getattr(contract, "status", "") or "")
+                settled = bool(is_sold) or status in ("won", "lost", "sold")
+                # SDK sans champ de statut : le profit après expiration fait foi.
+                if is_sold is None and not status:
+                    settled = getattr(contract, "profit", None) is not None
+                if settled:
+                    return float(getattr(contract, "profit", 0.0) or 0.0)
+            await asyncio.sleep(self.SETTLE_POLL_SEC)
+        logger.error(f"Contrat {contract_id} non réglé après attente")
+        return None
 
+    async def _close_trade(self, contract_type: str, trade_id: str | None,
+                           pnl: float | None) -> None:
+        """Met à jour risque, journal, apprentissage online et Telegram."""
+        known = pnl is not None
+        # Résultat inconnu : compté comme perte de la mise côté risque (prudent).
+        risk_pnl = pnl if known else -float(self.STAKE_AUTO)
         self.risk.record(TradeResult(
             symbol=self.SYMBOL,
-            pnl=pnl,
+            pnl=risk_pnl,
             contract_type=contract_type,
             stake=self.STAKE_AUTO,
         ))
 
-        # Clôture journal (mission edge) : tous les trades ouverts sans id
-        # Deriv fiable sont clôturés avec le PnL réel du contrat.
-        if self.journal is not None and self.open_trades:
-            for tid in list(self.open_trades):
-                try:
-                    exit_res = self.journal.log_exit_contract(tid, pnl_dollar=pnl)
-                    # V2 — BOUCLE FERMÉE : le modèle online apprend du trade
-                    # clôturé immédiatement (pas d'attente du retrain hebdo).
-                    entry = self.open_trades[tid].get("entry")
-                    if self.online is not None and entry is not None:
-                        upd = self.online.update(
-                            self._online_features(entry),
-                            label=int((exit_res or {}).get("pnl_net_pct", 0) > 0),
+        if self.journal is not None and trade_id in self.open_trades:
+            try:
+                exit_res = self.journal.log_exit_contract(
+                    trade_id, pnl_dollar=risk_pnl,
+                    notes="" if known else "résultat inconnu : perte présumée")
+                # V2 — BOUCLE FERMÉE : le modèle online apprend du trade
+                # clôturé (uniquement si le résultat est réellement connu).
+                entry = self.open_trades[trade_id].get("entry")
+                if known and self.online is not None and entry is not None:
+                    upd = self.online.update(
+                        self._online_features(entry),
+                        label=int((exit_res or {}).get("pnl_net_pct", 0) > 0),
+                    )
+                    if upd.get("drift_detected"):
+                        await self._telegram(
+                            "⚠️ *CONCEPT DRIFT DÉTECTÉ*\n"
+                            f"Accuracy online : {upd['accuracy_running']:.1%} "
+                            f"(drift #{upd['n_drifts']} sur "
+                            f"{upd['n_samples']} trades)\n"
+                            "Le modèle s'adapte automatiquement."
                         )
-                        if upd.get("drift_detected"):
-                            await self._telegram(
-                                "⚠️ *CONCEPT DRIFT DÉTECTÉ*\n"
-                                f"Accuracy online : {upd['accuracy_running']:.1%} "
-                                f"(drift #{upd['n_drifts']} sur "
-                                f"{upd['n_samples']} trades)\n"
-                                "Le modèle s'adapte automatiquement."
-                            )
-                except ValueError as exc:
-                    logger.warning('Journal close failed: %s', exc)
-                except Exception:
-                    logger.warning(f"Clôture journal {tid} ignorée",
-                                   exc_info=True)
-            self.open_trades.clear()
+            except ValueError as exc:
+                logger.warning('Journal close failed: %s', exc)
+            except Exception:
+                logger.warning(f"Clôture journal {trade_id} ignorée",
+                               exc_info=True)
+            finally:
+                self.open_trades.pop(trade_id, None)
             # Boucle d'amélioration : rapport hebdo dès 10 trades clôturés.
             try:
                 if self.learner is not None:
@@ -601,10 +658,13 @@ class DerivBotExecutor:
             except Exception:
                 logger.warning("Analyse journal ignorée", exc_info=True)
 
-        status = "✅ GAGNÉ" if pnl > 0 else "❌ PERDU"
+        if not known:
+            status = "⚠️ RÉSULTAT INCONNU (compté perdu)"
+        else:
+            status = "✅ GAGNÉ" if pnl > 0 else "❌ PERDU"
         await self._telegram(
             f"{status} — {self.SYMBOL}\n"
-            f"P&L : {'+' if pnl >= 0 else ''}{pnl:.2f}$\n"
+            f"P&L : {'+' if risk_pnl >= 0 else ''}{risk_pnl:.2f}$\n"
             f"Capital actuel : {self.risk.capital_actuel:.2f}$\n"
             f"Winrate jour : {self.risk.stats['winrate_jour']:.1f}%"
         )
