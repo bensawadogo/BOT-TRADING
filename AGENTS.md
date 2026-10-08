@@ -1,42 +1,42 @@
-# AGENTS.md — Conventions du bot Deriv (C:\BOT-TRADING)
+# AGENTS.md â€” Conventions du bot Deriv (C:\BOT-TRADING)
 
-## Target (labels d'entraînement / évaluation WFO)
+## Target (labels d'entraÃ®nement / Ã©valuation WFO)
 
 - **Avant** : `target = close[t+1] > close[t]` (target triviale UP/DOWN,
   mode `build_labels(df)` = `mode="sign"`).
-  ? Biaisé par la dérive de l'indice : sur CRASH500 M1 (+0.012 %/min),
-  89.8 % des labels valent 1 ? le WR mesurait la dérive, pas une compétence
-  (audit 90 % : acc réelle 70.9 % = acc permutée 71.1 % = baseline UP 71.1 %).
+  - BiaisÃ© par la dÃ©rive de l'indice : sur CRASH500 M1 (+0.012 %/min),
+  89.8 % des labels valent 1 â†’ le WR mesurait la dÃ©rive, pas une compÃ©tence
+  (audit 90 % : acc rÃ©elle 70.9 % = acc permutÃ©e 71.1 % = baseline UP 71.1 %).
 
-- **Après** (P0-v2, défaut partout) : `target = triple-barrière symétrique`
+- **AprÃ¨s** (P0-v2, dÃ©faut partout) : `target = triple-barriÃ¨re symÃ©trique`
   via `build_labels(df, mode="triple_barrier", touch_mult=1.5, horizon=3)`
-  (équivalent `atr_mult=1.5, horizon=3`) :
-  ? label **1** si le prix touche **+1.5×ATR** avant -1.5×ATR dans les
+  (Ã©quivalent `atr_mult=1.5, horizon=3`) :
+  - label **1** si le prix touche **+1.5Ã—ATR** avant -1.5Ã—ATR dans les
   `horizon` bougies ;
-  ? label **0** si le prix touche **-1.5×ATR** avant +1.5×ATR ;
-  ? label **éliminé** (pas de trade) si ni l'une ni l'autre barrière n'est
-  touchée dans l'horizon.
-  ? Les deux barrières sont symétriques ? le biais de drift disparaît
-  (baseline mesurée : 0.513 sur frxEURUSD H4 vs 0.898 en target triviale).
+  - label **0** si le prix touche **-1.5Ã—ATR** avant +1.5Ã—ATR ;
+  - label **Ã©liminÃ©** (pas de trade) si ni l'une ni l'autre barriÃ¨re n'est
+  touchÃ©e dans l'horizon.
+  - Les deux barriÃ¨res sont symÃ©triques â†’ le biais de drift disparaÃ®t
+  (baseline mesurÃ©e : 0.513 sur frxEURUSD H4 vs 0.898 en target triviale).
 
-- **Où c'est appliqué** :
+- **OÃ¹ c'est appliquÃ©** :
   - `deriv/ensemble_predictor.py` : `XGBoostPredictor.train()` et
-    `LSTMPredictor.train()` (labels d'entraînement) ;
+    `LSTMPredictor.train()` (labels d'entraÃ®nement) ;
   - `deriv/walk_forward_optimizer.py` : `WalkForwardOptimizer.run()`
-    (défaut `target_mode="triple_barrier"`), `_evaluate()` (labels
-    out-of-sample via `build_labels`, baseline dérive conservée à part dans
+    (dÃ©faut `target_mode="triple_barrier"`), `_evaluate()` (labels
+    out-of-sample via `build_labels`, baseline dÃ©rive conservÃ©e Ã  part dans
     `up_rate`), CLI `--target {triple_barrier,sign,crash}`
-    (défaut `triple_barrier`) ;
+    (dÃ©faut `triple_barrier`) ;
   - `deriv/tests/test_anti_leakage.py` :
-    `TestTripleBarriereAntiDrift` (ratio 0.35–0.65 sur dataset drifté).
+    `TestTripleBarriereAntiDrift` (ratio 0.35â€“0.65 sur dataset driftÃ©).
 
 - **Legacy** : `mode="sign"` (close[t+1] > close[t]) reste disponible pour
-  compatibilité (`--target sign`), `mode="crash"` pour la cible asymétrique
+  compatibilitÃ© (`--target sign`), `mode="crash"` pour la cible asymÃ©trique
   CRASH500 (P(crash)).
 
 ## Quick Start
 
-1. Installer les dépendances : `pip install -r requirements.txt`
+1. Installer les dÃ©pendances : `pip install -r requirements.txt`
 2. Configurer `.env` (voir `.env.example`)
 3. Lancer les tests : `pytest tests/ deriv/tests/`
 4. Lancer le bot : `python deriv/bot_executor.py`
@@ -45,12 +45,12 @@
 ## Architecture
 
 - `deriv/client.py` : Connexion WebSocket Deriv
-- `deriv/risk_manager.py` : Gestion du capital et des règles de risque
+- `deriv/risk_manager.py` : Gestion du capital et des rÃ¨gles de risque
 - `deriv/bot_executor.py` : Orchestrateur principal (collecte -> ensemble -> risk -> execution)
-- `deriv/ensemble_predictor.py` : Croisement 5 modèles (HMM, XGBoost, LSTM, Kalman, RSI)
+- `deriv/ensemble_predictor.py` : Croisement 5 modÃ¨les (HMM, XGBoost, LSTM, Kalman, RSI)
 - `deriv/online_learner.py` : Apprentissage online (River)
-- `deriv/weekly_retrain.py` : Ré-entraînement hebdomadaire
-- `deriv/strategies/` : Stratégies (rise_fall, boom_crash_drift, regime_momentum, over_under, digit_diff)
+- `deriv/weekly_retrain.py` : RÃ©-entraÃ®nement hebdomadaire
+- `deriv/strategies/` : StratÃ©gies (rise_fall, boom_crash_drift, regime_momentum, over_under, digit_diff)
 - `dashboard/app.py` : Dashboard Streamlit
 - `forward/` : Forward demo et analyse
 
@@ -60,4 +60,4 @@ Variables .env principales :
 - DERIV_APP_ID, DERIV_API_TOKEN, DERIV_SYMBOL, DERIV_DUR, DERIV_ACCOUNT_TYPE
 - CAPITAL_USD, AUTO_STAKE, MAX_RISK_PCT, DAILY_STOP_PCT, MAX_CONSECUTIVE
 - TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
-- RUN_NETWORK_TESTS=0 (mettre à 1 pour activer les tests réseau)
+- RUN_NETWORK_TESTS=0 (mettre Ã  1 pour activer les tests rÃ©seau)

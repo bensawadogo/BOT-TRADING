@@ -470,3 +470,11 @@ out-of-sample. Deux options :
 
 Le bot reste en HOLD par défaut. `DERIV_ALLOW_REAL` reste 0.
 
+
+
+## Audit données réelles BOOM/CRASH — 08/10/2026 (CONCLUSION DÉFINITIVE)
+- 100 000 bougies M1 réelles par indice, coûts réels (`docs/reports/AUDIT_BOOM_CRASH_2026-10-08.md`).
+- Rise/Fall indisponible sur Boom/Crash (ACCU / MULTUP / MULTDOWN seulement).
+- Signal spike vs taux de base : BOOM500 57,0 % vs 58,2 % (p = 0,80) ; CRASH500 60,1 % vs 58,7 % (p = 0,19) → aucun pouvoir prédictif.
+- Multipliers ×100-×400, 5-60 min : PnL moyen négatif partout.
+- → Stratégie drift abandonnée. Bot en HOLD. Ancien endpoint Deriv HS : migration client nécessaire.

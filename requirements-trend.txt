@@ -1,0 +1,10 @@
+# Dépendances du SEUL bot de tendance MT5 (trend_bot/) — installable sans deriv-sdk.
+#   pip install -r requirements-trend.txt
+numpy>=2.0
+pandas>=2.2
+scipy>=1.11
+scikit-learn>=1.5
+hmmlearn>=0.3.3      # lab/hmm_causal.py (importé par le paper broker via lab.daily)
+jumpmodels>=0.1.1    # filtre de régime (Apache-2.0)
+python-dotenv>=1.0
+MetaTrader5>=5.0.45; sys_platform == "win32"
