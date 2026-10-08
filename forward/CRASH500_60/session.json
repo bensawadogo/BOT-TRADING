@@ -1,0 +1,30 @@
+{
+  "started_at": "2026-09-16T15:04:00+08:00",
+  "completed_at": "2026-09-16T19:35:13+08:00",
+  "forward_demo": "forward_demo.py — CRASH500 M1",
+  "config": {
+    "dataset": "CRASH500 M1",
+    "duration_minutes": 240,
+    "tick_interval_seconds": 60,
+    "trades_per_tick": 5,
+    "contracts": [5, 10, 15, 20, 30],
+    "expiry": 60,
+    "lookback_candles": 5,
+    "models": ["ensemble_predictor", "online_learner", "weekly_retrain", "hmm_regime"]
+  },
+  "results": {
+    "n_decisions": 1696,
+    "n_issues": 1899,
+    "baseline_up_wr": 90.0,
+    "all_models_below_baseline": true,
+    "all_models_negative_pnl": true,
+    "conclusion": "Aucun modele ne depasse la baseline UP (drift). PnL net negatif pour tous. Pas dedge exploitable sur CRASH500 M1."
+  },
+  "checkpoints": [
+    {
+      "at": "2026-09-16T16:13:00+08:00",
+      "elapsed_minutes": 69,
+      "note": "Vérification intermédiaire 1 — voir checkpoint.json"
+    }
+  ]
+}

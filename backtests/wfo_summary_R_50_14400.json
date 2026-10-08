@@ -1,0 +1,191 @@
+{
+  "Kalman": {
+    "win_rate_moyen": 0.4567,
+    "win_rate_std": 0.1627,
+    "win_rate_min": 0.0,
+    "win_rate_max": 0.8571,
+    "wilson_95": [
+      0.4095,
+      0.5048
+    ],
+    "p_value_vs_hasard": 0.96523,
+    "meilleur_que_hasard": false,
+    "n_folds": 39,
+    "n_trades_total": 416,
+    "profitable": false,
+    "in_sample_wr": null,
+    "diagnostic_overfitting": {
+      "overfitting": true,
+      "ecart_in_out": 0.0,
+      "ecart_type_folds": 0.1627,
+      "n_trades": 416,
+      "signaux": [
+        "écart-type folds = 16.3% > 15% (instable)"
+      ],
+      "fiabilite": "FAIBLE"
+    },
+    "demo_ready": false
+  },
+  "Momentum": {
+    "win_rate_moyen": 0.5131,
+    "win_rate_std": 0.1379,
+    "win_rate_min": 0.2727,
+    "win_rate_max": 0.8333,
+    "wilson_95": [
+      0.4674,
+      0.5586
+    ],
+    "p_value_vs_hasard": 0.30365,
+    "meilleur_que_hasard": false,
+    "n_folds": 39,
+    "n_trades_total": 458,
+    "profitable": false,
+    "in_sample_wr": null,
+    "diagnostic_overfitting": {
+      "overfitting": false,
+      "ecart_in_out": 0.0,
+      "ecart_type_folds": 0.1379,
+      "n_trades": 458,
+      "signaux": [],
+      "fiabilite": "BONNE"
+    },
+    "demo_ready": false
+  },
+  "HMM": {
+    "win_rate_moyen": 0.472,
+    "win_rate_std": 0.2046,
+    "win_rate_min": 0.0,
+    "win_rate_max": 1.0,
+    "wilson_95": [
+      0.4182,
+      0.5266
+    ],
+    "p_value_vs_hasard": 0.85517,
+    "meilleur_que_hasard": false,
+    "n_folds": 39,
+    "n_trades_total": 322,
+    "profitable": false,
+    "in_sample_wr": 0.5185,
+    "diagnostic_overfitting": {
+      "overfitting": true,
+      "ecart_in_out": 0.0465,
+      "ecart_type_folds": 0.2046,
+      "n_trades": 322,
+      "signaux": [
+        "écart-type folds = 20.5% > 15% (instable)"
+      ],
+      "fiabilite": "FAIBLE"
+    },
+    "demo_ready": false
+  },
+  "RSI": {
+    "win_rate_moyen": 0.4754,
+    "win_rate_std": 0.3764,
+    "win_rate_min": 0.0,
+    "win_rate_max": 1.0,
+    "wilson_95": [
+      0.3553,
+      0.5984
+    ],
+    "p_value_vs_hasard": 0.69554,
+    "meilleur_que_hasard": false,
+    "n_folds": 39,
+    "n_trades_total": 61,
+    "profitable": false,
+    "in_sample_wr": null,
+    "diagnostic_overfitting": {
+      "overfitting": true,
+      "ecart_in_out": 0.0,
+      "ecart_type_folds": 0.3764,
+      "n_trades": 61,
+      "signaux": [
+        "écart-type folds = 37.6% > 15% (instable)",
+        "échantillon faible : 61 trades < 100"
+      ],
+      "fiabilite": "FAIBLE"
+    },
+    "demo_ready": false
+  },
+  "Ensemble4sur5": {
+    "win_rate_moyen": 0.4286,
+    "win_rate_std": 0.2491,
+    "win_rate_min": 0.0,
+    "win_rate_max": 0.6,
+    "wilson_95": [
+      0.2138,
+      0.6741
+    ],
+    "p_value_vs_hasard": 0.78802,
+    "meilleur_que_hasard": false,
+    "n_folds": 39,
+    "n_trades_total": 14,
+    "profitable": false,
+    "in_sample_wr": 0.0,
+    "diagnostic_overfitting": {
+      "overfitting": true,
+      "ecart_in_out": -0.4286,
+      "ecart_type_folds": 0.2491,
+      "n_trades": 14,
+      "signaux": [
+        "écart-type folds = 24.9% > 15% (instable)",
+        "échantillon faible : 14 trades < 100"
+      ],
+      "fiabilite": "FAIBLE"
+    },
+    "demo_ready": false
+  },
+  "TrendStrength": {
+    "win_rate_moyen": 0.5,
+    "win_rate_std": 0.0,
+    "win_rate_min": 0.5,
+    "win_rate_max": 0.5,
+    "wilson_95": [
+      0.2152,
+      0.7848
+    ],
+    "p_value_vs_hasard": 0.63672,
+    "meilleur_que_hasard": false,
+    "n_folds": 39,
+    "n_trades_total": 8,
+    "profitable": false,
+    "in_sample_wr": null,
+    "diagnostic_overfitting": {
+      "overfitting": true,
+      "ecart_in_out": 0.0,
+      "ecart_type_folds": 0.0,
+      "n_trades": 8,
+      "signaux": [
+        "échantillon faible : 8 trades < 100"
+      ],
+      "fiabilite": "FAIBLE"
+    },
+    "demo_ready": false
+  },
+  "XGBoost": {
+    "win_rate_moyen": 0.4667,
+    "win_rate_std": 0.1247,
+    "win_rate_min": 0.2667,
+    "win_rate_max": 0.6,
+    "wilson_95": [
+      0.3463,
+      0.5911
+    ],
+    "p_value_vs_hasard": 0.74052,
+    "meilleur_que_hasard": false,
+    "n_folds": 39,
+    "n_trades_total": 60,
+    "profitable": false,
+    "in_sample_wr": 0.25,
+    "diagnostic_overfitting": {
+      "overfitting": true,
+      "ecart_in_out": -0.2167,
+      "ecart_type_folds": 0.1247,
+      "n_trades": 60,
+      "signaux": [
+        "échantillon faible : 60 trades < 100"
+      ],
+      "fiabilite": "FAIBLE"
+    },
+    "demo_ready": false
+  }
+}

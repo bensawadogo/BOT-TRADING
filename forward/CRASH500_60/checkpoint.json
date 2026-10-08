@@ -1,0 +1,95 @@
+{
+  "symbol": "CRASH500",
+  "granularity": 60,
+  "spread": 0.002,
+  "n_decisions": 1696,
+  "n_issues": 1899,
+  "n_up_reel": 190,
+  "n_down_reel": 21,
+  "pending": 8,
+  "t0_forward": 1789571085.243075,
+  "checked_at": 1789587312.9757214,
+  "stats": {
+    "BaselineUP": {
+      "n": 211,
+      "win_rate": 0.9005,
+      "p_binomiale": 0.0,
+      "pnl_net_cum": -0.416944,
+      "pnl_moyen": -0.00197604,
+      "max_dd": 0.415075,
+      "ret_moyen_brut": 2.396e-05
+    },
+    "Ensemble4sur5": {
+      "n": 177,
+      "win_rate": 0.8701,
+      "p_binomiale": 0.0,
+      "pnl_net_cum": -0.352002,
+      "pnl_moyen": -0.00198871,
+      "max_dd": 0.350008,
+      "ret_moyen_brut": 1.676e-05
+    },
+    "HMM": {
+      "n": 211,
+      "win_rate": 0.8009,
+      "p_binomiale": 0.0,
+      "pnl_net_cum": -0.408451,
+      "pnl_moyen": -0.00193579,
+      "max_dd": 0.406583,
+      "ret_moyen_brut": 2.396e-05
+    },
+    "Kalman": {
+      "n": 188,
+      "win_rate": 0.8085,
+      "p_binomiale": 0.0,
+      "pnl_net_cum": -0.368807,
+      "pnl_moyen": -0.00196174,
+      "max_dd": 0.366675,
+      "ret_moyen_brut": 1.16e-06
+    },
+    "Momentum": {
+      "n": 176,
+      "win_rate": 0.8068,
+      "p_binomiale": 0.0,
+      "pnl_net_cum": -0.355068,
+      "pnl_moyen": -0.00201743,
+      "max_dd": 0.3532,
+      "ret_moyen_brut": 3.255e-05
+    },
+    "Online": {
+      "n": 181,
+      "win_rate": 0.8232,
+      "p_binomiale": 0.0,
+      "pnl_net_cum": -0.358524,
+      "pnl_moyen": -0.0019808,
+      "max_dd": 0.356636,
+      "ret_moyen_brut": 1.615e-05
+    },
+    "RSI": {
+      "n": 193,
+      "win_rate": 0.8083,
+      "p_binomiale": 0.0,
+      "pnl_net_cum": -0.39198,
+      "pnl_moyen": -0.00203098,
+      "max_dd": 0.38985,
+      "ret_moyen_brut": 1.64e-05
+    },
+    "TrendStrength": {
+      "n": 146,
+      "win_rate": 0.8767,
+      "p_binomiale": 0.0,
+      "pnl_net_cum": -0.295973,
+      "pnl_moyen": -0.00202721,
+      "max_dd": 0.294104,
+      "ret_moyen_brut": -2.721e-05
+    },
+    "XGBoost": {
+      "n": 211,
+      "win_rate": 0.7299,
+      "p_binomiale": 0.0,
+      "pnl_net_cum": -0.428175,
+      "pnl_moyen": -0.00202927,
+      "max_dd": 0.426306,
+      "ret_moyen_brut": 2.396e-05
+    }
+  }
+}

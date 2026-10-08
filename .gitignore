@@ -1,0 +1,23 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.streamlit/
+deriv/models/
+.env*
+.env.*
+state.json
+.kilo/
+logs/
+*.lock
+*.bak
+*.tmp
+tmp/
+*.db
+*.sqlite3
+
+# Dépôts tiers clonés (conservés en local)
+research/clones/
+crypto/source/
+deriv/source/
+intelligence/source/

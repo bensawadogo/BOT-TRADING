@@ -1,0 +1,101 @@
+//@version=6
+indicator("Trading Algo Africa — HMM+Kalman+Consensus", overlay=true)
+
+// ══════════════════════════════════════════════════
+//  PARAMÈTRES
+// ══════════════════════════════════════════════════
+gain       = input.float(0.3,  "Kalman Gain",        minval=0.01, maxval=1.0,   step=0.01)
+fast       = input.int(20,     "EMA rapide",          minval=2,    maxval=200)
+slow       = input.int(50,     "EMA lente",           minval=5,    maxval=500)
+score_buy  = input.int(65,     "Score BUY minimum",   minval=51,   maxval=100)
+score_sell = input.int(35,     "Score SELL maximum",  minval=0,    maxval=49)
+
+// ══════════════════════════════════════════════════
+//  FILTRE DE KALMAN
+// ══════════════════════════════════════════════════
+var float kprice = na
+var float kerror = 1.0
+if na(kprice)
+    kprice := close
+    kerror := 1.0
+float kg = gain / (gain + kerror)
+kprice  := kprice + kg * (close - kprice)
+kerror  := (1.0 - kg) * kerror
+plot(kprice, "Kalman", color.blue, 2)
+
+// ══════════════════════════════════════════════════
+//  RÉGIME DE MARCHÉ (proxy HMM)
+// ══════════════════════════════════════════════════
+float ema_f = ta.ema(close, fast)
+float ema_s = ta.ema(close, slow)
+float atr14 = ta.atr(14)
+float atr_r = atr14 / ta.sma(atr14, 50)
+bool bull   = ema_f > ema_s and atr_r < 1.5
+bool bear   = ema_f < ema_s and atr_r < 1.5
+
+// FIX CE10156 : ternaire sur une seule ligne
+bgcolor(bull ? color.new(color.green, 90) : bear ? color.new(color.red, 90) : color.new(color.gray, 90))
+
+// ══════════════════════════════════════════════════
+//  INDICATEURS TECHNIQUES
+// ══════════════════════════════════════════════════
+float rsi_v                    = ta.rsi(close, 14)
+[macd_line, macd_sig, _]       = ta.macd(close, 12, 26, 9)
+[bb_mid, bb_up, bb_low]        = ta.bb(close, 20, 2)
+
+// FIX CW10002 : crossover/crossunder en variables GLOBALES (pas dans une condition)
+bool cross_up = ta.crossover(close, bb_low)
+bool cross_dn = ta.crossunder(close, bb_mid)
+
+// ══════════════════════════════════════════════════
+//  SCORE CONSENSUS (0 → 100)
+// ══════════════════════════════════════════════════
+int rsc    = rsi_v < 35            ? 20  : rsi_v > 65            ? -20 : 0
+int msc    = macd_line > macd_sig  ? 15  : -15
+int ksc    = close < kprice * 0.99 ? 15  : close > kprice * 1.01 ? -15 : 0
+int bsc    = close < bb_low        ? 10  : -5
+int reg_sc = bull                  ? 15  : bear                   ? -15 : 0
+int score  = 50 + rsc + msc + ksc + bsc + reg_sc
+
+// ══════════════════════════════════════════════════
+//  SIGNAUX BUY / SELL  (utilise les variables globales)
+// ══════════════════════════════════════════════════
+bool buy  = score >= score_buy  and cross_up
+bool sell = score <= score_sell and cross_dn
+
+plotshape(buy,  "BUY",  shape.triangleup,   location.belowbar, color.green, size=size.normal)
+plotshape(sell, "SELL", shape.triangledown, location.abovebar, color.red,   size=size.normal)
+
+// ══════════════════════════════════════════════════
+//  DASHBOARD — tableau haut-droite
+// ══════════════════════════════════════════════════
+var table dash = table.new(position.top_right, 2, 5, border_color=color.new(color.gray, 60), border_width=1, bgcolor=color.new(color.black, 70))
+
+if barstate.islast
+    string regime_txt = bull ? "🟢 Bull" : bear ? "🔴 Bear" : "⚪ Range"
+    color  regime_col = bull ? color.green : bear ? color.red : color.gray
+    // FIX CE10156 : toutes les couleurs sur une seule ligne
+    color  score_col  = score >= score_buy ? color.green : score <= score_sell ? color.red : color.white
+    color  rsi_col    = rsi_v < 35 ? color.green : rsi_v > 65 ? color.red : color.white
+    float  kd_pct     = (close - kprice) / kprice * 100.0
+    color  kd_col     = close < kprice ? color.green : color.red
+    string sig_txt    = buy ? "🟢 BUY" : sell ? "🔴 SELL" : "⏳ WAIT"
+    color  sig_col    = buy ? color.green : sell ? color.red : color.gray
+
+    table.cell(dash, 0, 0, "Régime",   text_color=color.gray, bgcolor=color.new(color.black, 80))
+    table.cell(dash, 0, 1, "Score",    text_color=color.gray, bgcolor=color.new(color.black, 80))
+    table.cell(dash, 0, 2, "RSI 14",   text_color=color.gray, bgcolor=color.new(color.black, 80))
+    table.cell(dash, 0, 3, "Kalman Δ", text_color=color.gray, bgcolor=color.new(color.black, 80))
+    table.cell(dash, 0, 4, "Signal",   text_color=color.gray, bgcolor=color.new(color.black, 80))
+
+    table.cell(dash, 1, 0, regime_txt,                                text_color=regime_col)
+    table.cell(dash, 1, 1, str.tostring(score) + "/100",              text_color=score_col)
+    table.cell(dash, 1, 2, str.tostring(math.round(rsi_v, 1)),        text_color=rsi_col)
+    table.cell(dash, 1, 3, str.tostring(math.round(kd_pct, 2)) + "%", text_color=kd_col)
+    table.cell(dash, 1, 4, sig_txt,                                    text_color=sig_col)
+
+// ══════════════════════════════════════════════════
+//  ALERTES
+// ══════════════════════════════════════════════════
+alertcondition(buy,  "BUY Signal",  "Trading Algo Africa ✅ BUY — {{ticker}} {{interval}}")
+alertcondition(sell, "SELL Signal", "Trading Algo Africa 🔴 SELL — {{ticker}} {{interval}}")

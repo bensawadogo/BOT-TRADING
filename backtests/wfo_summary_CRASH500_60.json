@@ -1,0 +1,299 @@
+{
+  "XGBoost": {
+    "win_rate_moyen": 0.7703,
+    "win_rate_std": 0.2447,
+    "win_rate_min": 0.0,
+    "win_rate_max": 1.0,
+    "wilson_95": [
+      0.7231,
+      0.8117
+    ],
+    "p_value_vs_hasard": 0.0,
+    "meilleur_que_hasard": true,
+    "n_folds": 25,
+    "n_trades_total": 344,
+    "profitable": true,
+    "in_sample_wr": null,
+    "diagnostic_overfitting": {
+      "overfitting": true,
+      "ecart_in_out": 0.0,
+      "ecart_type_folds": 0.2447,
+      "n_trades": 344,
+      "signaux": [
+        "écart-type folds = 24.5% > 20% (instable)"
+      ],
+      "fiabilite": "FAIBLE"
+    },
+    "seuil_calibre": {
+      "up": 0.725,
+      "down": 0.275
+    },
+    "taux_base_up": 0.7645,
+    "edge_vs_taux_base": 0.0058,
+    "balanced_wr": 0.5202,
+    "diagnostic_biais": {
+      "taux_base_up": 0.7645,
+      "edge_vs_taux_base": 0.0058,
+      "balanced_wr": 0.5202,
+      "n_up_reel": 263,
+      "n_down_reel": 81,
+      "hors_biais_taux_base": false,
+      "raison": "edge +0.58% < 5% → le WR brut n'est que le taux de base (76.5%)"
+    },
+    "demo_ready": false
+  },
+  "HMM": {
+    "win_rate_moyen": 0.6188,
+    "win_rate_std": 0.2115,
+    "win_rate_min": 0.2083,
+    "win_rate_max": 0.8788,
+    "wilson_95": [
+      0.5808,
+      0.6554
+    ],
+    "p_value_vs_hasard": 0.0,
+    "meilleur_que_hasard": true,
+    "n_folds": 25,
+    "n_trades_total": 648,
+    "profitable": true,
+    "in_sample_wr": null,
+    "diagnostic_overfitting": {
+      "overfitting": true,
+      "ecart_in_out": 0.0,
+      "ecart_type_folds": 0.2115,
+      "n_trades": 648,
+      "signaux": [
+        "écart-type folds = 21.1% > 20% (instable)"
+      ],
+      "fiabilite": "FAIBLE"
+    },
+    "seuil_calibre": {
+      "up": 0.5,
+      "down": 0.5
+    },
+    "taux_base_up": 0.6821,
+    "edge_vs_taux_base": -0.0633,
+    "balanced_wr": 0.4785,
+    "diagnostic_biais": {
+      "taux_base_up": 0.6821,
+      "edge_vs_taux_base": -0.0633,
+      "balanced_wr": 0.4785,
+      "n_up_reel": 442,
+      "n_down_reel": 206,
+      "hors_biais_taux_base": false,
+      "raison": "balanced accuracy 47.8% ≤ 50% → aucun pouvoir prédictif (dérive de l'indice)"
+    },
+    "demo_ready": false
+  },
+  "Kalman": {
+    "win_rate_moyen": 0.717,
+    "win_rate_std": 0.1405,
+    "win_rate_min": 0.4167,
+    "win_rate_max": 0.913,
+    "wilson_95": [
+      0.6789,
+      0.7523
+    ],
+    "p_value_vs_hasard": 0.0,
+    "meilleur_que_hasard": true,
+    "n_folds": 25,
+    "n_trades_total": 576,
+    "profitable": true,
+    "in_sample_wr": null,
+    "diagnostic_overfitting": {
+      "overfitting": false,
+      "ecart_in_out": 0.0,
+      "ecart_type_folds": 0.1405,
+      "n_trades": 576,
+      "signaux": [],
+      "fiabilite": "BONNE"
+    },
+    "seuil_calibre": {
+      "up": 0.5,
+      "down": 0.5
+    },
+    "taux_base_up": 0.6892,
+    "edge_vs_taux_base": 0.0278,
+    "balanced_wr": 0.5541,
+    "diagnostic_biais": {
+      "taux_base_up": 0.6892,
+      "edge_vs_taux_base": 0.0278,
+      "balanced_wr": 0.5541,
+      "n_up_reel": 397,
+      "n_down_reel": 179,
+      "hors_biais_taux_base": false,
+      "raison": "edge +2.78% < 5% → le WR brut n'est que le taux de base (68.9%)"
+    },
+    "demo_ready": false
+  },
+  "RSI": {
+    "win_rate_moyen": 0.8108,
+    "win_rate_std": 0.3252,
+    "win_rate_min": 0.0,
+    "win_rate_max": 1.0,
+    "wilson_95": [
+      0.7483,
+      0.8607
+    ],
+    "p_value_vs_hasard": 0.0,
+    "meilleur_que_hasard": true,
+    "n_folds": 25,
+    "n_trades_total": 185,
+    "profitable": true,
+    "in_sample_wr": null,
+    "diagnostic_overfitting": {
+      "overfitting": true,
+      "ecart_in_out": 0.0,
+      "ecart_type_folds": 0.3252,
+      "n_trades": 185,
+      "signaux": [
+        "écart-type folds = 32.5% > 20% (instable)"
+      ],
+      "fiabilite": "FAIBLE"
+    },
+    "seuil_calibre": {
+      "up": 0.5,
+      "down": 0.5
+    },
+    "taux_base_up": 0.8216,
+    "edge_vs_taux_base": -0.0108,
+    "balanced_wr": 0.4777,
+    "diagnostic_biais": {
+      "taux_base_up": 0.8216,
+      "edge_vs_taux_base": -0.0108,
+      "balanced_wr": 0.4777,
+      "n_up_reel": 152,
+      "n_down_reel": 33,
+      "hors_biais_taux_base": false,
+      "raison": "balanced accuracy 47.8% ≤ 50% → aucun pouvoir prédictif (dérive de l'indice)"
+    },
+    "demo_ready": false
+  },
+  "TrendStrength": {
+    "win_rate_moyen": 0.6913,
+    "win_rate_std": 0.3536,
+    "win_rate_min": 0.0,
+    "win_rate_max": 1.0,
+    "wilson_95": [
+      0.6289,
+      0.7475
+    ],
+    "p_value_vs_hasard": 0.0,
+    "meilleur_que_hasard": true,
+    "n_folds": 25,
+    "n_trades_total": 230,
+    "profitable": true,
+    "in_sample_wr": null,
+    "diagnostic_overfitting": {
+      "overfitting": true,
+      "ecart_in_out": 0.0,
+      "ecart_type_folds": 0.3536,
+      "n_trades": 230,
+      "signaux": [
+        "écart-type folds = 35.4% > 20% (instable)"
+      ],
+      "fiabilite": "FAIBLE"
+    },
+    "seuil_calibre": {
+      "up": 0.5,
+      "down": 0.5
+    },
+    "taux_base_up": 0.7348,
+    "edge_vs_taux_base": -0.0435,
+    "balanced_wr": 0.483,
+    "diagnostic_biais": {
+      "taux_base_up": 0.7348,
+      "edge_vs_taux_base": -0.0435,
+      "balanced_wr": 0.483,
+      "n_up_reel": 169,
+      "n_down_reel": 61,
+      "hors_biais_taux_base": false,
+      "raison": "balanced accuracy 48.3% ≤ 50% → aucun pouvoir prédictif (dérive de l'indice)"
+    },
+    "demo_ready": false
+  },
+  "Momentum": {
+    "win_rate_moyen": 0.7833,
+    "win_rate_std": 0.1372,
+    "win_rate_min": 0.5,
+    "win_rate_max": 1.0,
+    "wilson_95": [
+      0.7452,
+      0.8171
+    ],
+    "p_value_vs_hasard": 0.0,
+    "meilleur_que_hasard": true,
+    "n_folds": 25,
+    "n_trades_total": 503,
+    "profitable": true,
+    "in_sample_wr": null,
+    "diagnostic_overfitting": {
+      "overfitting": false,
+      "ecart_in_out": 0.0,
+      "ecart_type_folds": 0.1372,
+      "n_trades": 503,
+      "signaux": [],
+      "fiabilite": "BONNE"
+    },
+    "seuil_calibre": {
+      "up": 0.5,
+      "down": 0.5
+    },
+    "taux_base_up": 0.7097,
+    "edge_vs_taux_base": 0.0736,
+    "balanced_wr": 0.5781,
+    "diagnostic_biais": {
+      "taux_base_up": 0.7097,
+      "edge_vs_taux_base": 0.0736,
+      "balanced_wr": 0.5781,
+      "n_up_reel": 357,
+      "n_down_reel": 146,
+      "hors_biais_taux_base": true,
+      "raison": "compétence réelle : WR > taux de base et 2 classes testées"
+    },
+    "demo_ready": false
+  },
+  "Ensemble4sur5": {
+    "win_rate_moyen": 0.8161,
+    "win_rate_std": 0.2468,
+    "win_rate_min": 0.0,
+    "win_rate_max": 1.0,
+    "wilson_95": [
+      0.772,
+      0.8533
+    ],
+    "p_value_vs_hasard": 0.0,
+    "meilleur_que_hasard": true,
+    "n_folds": 25,
+    "n_trades_total": 348,
+    "profitable": true,
+    "in_sample_wr": null,
+    "diagnostic_overfitting": {
+      "overfitting": true,
+      "ecart_in_out": 0.0,
+      "ecart_type_folds": 0.2468,
+      "n_trades": 348,
+      "signaux": [
+        "écart-type folds = 24.7% > 20% (instable)"
+      ],
+      "fiabilite": "FAIBLE"
+    },
+    "seuil_calibre": {
+      "up": 0.5,
+      "down": 0.5
+    },
+    "taux_base_up": 0.7989,
+    "edge_vs_taux_base": 0.0172,
+    "balanced_wr": 0.5029,
+    "diagnostic_biais": {
+      "taux_base_up": 0.7989,
+      "edge_vs_taux_base": 0.0172,
+      "balanced_wr": 0.5029,
+      "n_up_reel": 278,
+      "n_down_reel": 70,
+      "hors_biais_taux_base": false,
+      "raison": "edge +1.72% < 5% → le WR brut n'est que le taux de base (79.9%)"
+    },
+    "demo_ready": false
+  }
+}

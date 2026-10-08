@@ -1,0 +1,26 @@
+# python-deriv-api est incompatible : websockets==10.3 vs deriv-sdk (websockets>=16).
+# Le client Deriv du projet utilise deriv-sdk.
+
+deriv-sdk>=1.0.0
+websockets>=16.0
+hmmlearn>=0.3.3
+scikit-learn>=1.5
+pandas>=2.2
+numpy>=2.0
+TA-Lib>=0.7.1
+ta>=0.11.0
+ccxt>=4.5
+streamlit>=1.63
+plotly>=7.0
+python-dotenv>=1.0
+PyWavelets>=1.8
+
+# ── Bot Deriv ensemble 4/5 ──────────────────────────────────────────
+xgboost>=2.0        # Modèle 2 (XGBoost). Sinon → vote neutre 0.5.
+aiohttp>=3.9        # Alertes Telegram du bot_executor.
+filelock>=3.12      # weekly_retrain.py — verrous inter-processus (optionnel).
+
+# TensorFlow (Modèle 3 LSTM) : optionnel — souvent lourd et variable en
+# support de plateforme. Sans lui, le vote LSTM reste neutre (0.5).
+# pip install tensorflow
+

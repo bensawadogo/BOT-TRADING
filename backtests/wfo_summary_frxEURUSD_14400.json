@@ -1,0 +1,265 @@
+{
+  "HMM": {
+    "win_rate_moyen": 0.6351,
+    "win_rate_std": 0.217,
+    "win_rate_min": 0.25,
+    "win_rate_max": 1.0,
+    "wilson_95": [
+      0.5213,
+      0.7356
+    ],
+    "p_value_vs_hasard": 0.01326,
+    "meilleur_que_hasard": true,
+    "n_folds": 15,
+    "n_trades_total": 74,
+    "profitable": true,
+    "in_sample_wr": 0.5714,
+    "diagnostic_overfitting": {
+      "overfitting": true,
+      "ecart_in_out": -0.0637,
+      "ecart_type_folds": 0.217,
+      "n_trades": 74,
+      "signaux": [
+        "écart-type folds = 21.7% > 15% (instable)",
+        "échantillon faible : 74 trades < 100"
+      ],
+      "fiabilite": "FAIBLE"
+    },
+    "seuil_calibre": {
+      "up": 0.7,
+      "down": 0.3
+    },
+    "taux_base_up": 0.4189,
+    "edge_vs_taux_base": 0.2162,
+    "balanced_wr": 0.4881,
+    "diagnostic_biais": {
+      "taux_base_up": 0.4189,
+      "edge_vs_taux_base": 0.2162,
+      "balanced_wr": 0.4881,
+      "n_up_reel": 31,
+      "n_down_reel": 43,
+      "hors_biais_taux_base": false,
+      "raison": "balanced accuracy 48.8% ≤ 50% → aucun pouvoir prédictif (dérive de l'indice)"
+    },
+    "demo_ready": false
+  },
+  "Kalman": {
+    "win_rate_moyen": 0.5424,
+    "win_rate_std": 0.2963,
+    "win_rate_min": 0.0,
+    "win_rate_max": 1.0,
+    "wilson_95": [
+      0.4166,
+      0.663
+    ],
+    "p_value_vs_hasard": 0.30146,
+    "meilleur_que_hasard": false,
+    "n_folds": 15,
+    "n_trades_total": 59,
+    "profitable": false,
+    "in_sample_wr": null,
+    "diagnostic_overfitting": {
+      "overfitting": true,
+      "ecart_in_out": 0.0,
+      "ecart_type_folds": 0.2963,
+      "n_trades": 59,
+      "signaux": [
+        "écart-type folds = 29.6% > 15% (instable)",
+        "échantillon faible : 59 trades < 100"
+      ],
+      "fiabilite": "FAIBLE"
+    },
+    "seuil_calibre": {
+      "up": 0.5,
+      "down": 0.5
+    },
+    "taux_base_up": 0.3559,
+    "edge_vs_taux_base": 0.1864,
+    "balanced_wr": 0.459,
+    "diagnostic_biais": {
+      "taux_base_up": 0.3559,
+      "edge_vs_taux_base": 0.1864,
+      "balanced_wr": 0.459,
+      "n_up_reel": 21,
+      "n_down_reel": 38,
+      "hors_biais_taux_base": false,
+      "raison": "balanced accuracy 45.9% ≤ 50% → aucun pouvoir prédictif (dérive de l'indice)"
+    },
+    "demo_ready": false
+  },
+  "RSI": {
+    "win_rate_moyen": 0.6429,
+    "win_rate_std": 0.4696,
+    "win_rate_min": 0.0,
+    "win_rate_max": 1.0,
+    "wilson_95": [
+      0.3876,
+      0.8366
+    ],
+    "p_value_vs_hasard": 0.21198,
+    "meilleur_que_hasard": false,
+    "n_folds": 15,
+    "n_trades_total": 14,
+    "profitable": true,
+    "in_sample_wr": null,
+    "diagnostic_overfitting": {
+      "overfitting": true,
+      "ecart_in_out": 0.0,
+      "ecart_type_folds": 0.4696,
+      "n_trades": 14,
+      "signaux": [
+        "écart-type folds = 47.0% > 15% (instable)",
+        "échantillon faible : 14 trades < 100"
+      ],
+      "fiabilite": "FAIBLE"
+    },
+    "seuil_calibre": {
+      "up": 0.5,
+      "down": 0.5
+    },
+    "taux_base_up": 0.2857,
+    "edge_vs_taux_base": 0.3571,
+    "balanced_wr": 0.5,
+    "diagnostic_biais": {
+      "taux_base_up": 0.2857,
+      "edge_vs_taux_base": 0.3571,
+      "balanced_wr": 0.5,
+      "n_up_reel": 4,
+      "n_down_reel": 10,
+      "hors_biais_taux_base": false,
+      "raison": "seulement 10 trade(s) sur bougies baissières < 30 → modèle non testé en régime descendant"
+    },
+    "demo_ready": false
+  },
+  "TrendStrength": {
+    "win_rate_moyen": 0.0,
+    "win_rate_std": 0.0,
+    "win_rate_min": 0.0,
+    "win_rate_max": 0.0,
+    "wilson_95": [
+      0.0,
+      0.7935
+    ],
+    "p_value_vs_hasard": 1.0,
+    "meilleur_que_hasard": false,
+    "n_folds": 15,
+    "n_trades_total": 1,
+    "profitable": false,
+    "in_sample_wr": null,
+    "diagnostic_overfitting": {
+      "overfitting": true,
+      "ecart_in_out": 0.0,
+      "ecart_type_folds": 0.0,
+      "n_trades": 1,
+      "signaux": [
+        "échantillon faible : 1 trades < 100"
+      ],
+      "fiabilite": "FAIBLE"
+    },
+    "seuil_calibre": {
+      "up": 0.6,
+      "down": 0.4
+    },
+    "taux_base_up": 0.0,
+    "edge_vs_taux_base": 0.0,
+    "balanced_wr": 0.5,
+    "diagnostic_biais": {
+      "taux_base_up": 0.0,
+      "edge_vs_taux_base": 0.0,
+      "balanced_wr": 0.5,
+      "n_up_reel": 0,
+      "n_down_reel": 1,
+      "hors_biais_taux_base": false,
+      "raison": "seulement 1 trade(s) sur bougies baissières < 30 → modèle non testé en régime descendant"
+    },
+    "demo_ready": false
+  },
+  "Momentum": {
+    "win_rate_moyen": 0.4286,
+    "win_rate_std": 0.3544,
+    "win_rate_min": 0.0,
+    "win_rate_max": 1.0,
+    "wilson_95": [
+      0.314,
+      0.5514
+    ],
+    "p_value_vs_hasard": 0.89632,
+    "meilleur_que_hasard": false,
+    "n_folds": 15,
+    "n_trades_total": 63,
+    "profitable": false,
+    "in_sample_wr": null,
+    "diagnostic_overfitting": {
+      "overfitting": true,
+      "ecart_in_out": 0.0,
+      "ecart_type_folds": 0.3544,
+      "n_trades": 63,
+      "signaux": [
+        "écart-type folds = 35.4% > 15% (instable)",
+        "échantillon faible : 63 trades < 100"
+      ],
+      "fiabilite": "FAIBLE"
+    },
+    "seuil_calibre": {
+      "up": 0.5,
+      "down": 0.5
+    },
+    "taux_base_up": 0.4762,
+    "edge_vs_taux_base": -0.0476,
+    "balanced_wr": 0.4524,
+    "diagnostic_biais": {
+      "taux_base_up": 0.4762,
+      "edge_vs_taux_base": -0.0476,
+      "balanced_wr": 0.4524,
+      "n_up_reel": 30,
+      "n_down_reel": 33,
+      "hors_biais_taux_base": false,
+      "raison": "balanced accuracy 45.2% ≤ 50% → aucun pouvoir prédictif (dérive de l'indice)"
+    },
+    "demo_ready": false
+  },
+  "Ensemble4sur5": {
+    "win_rate_moyen": 0.7,
+    "win_rate_std": 0.4899,
+    "win_rate_min": 0.0,
+    "win_rate_max": 1.0,
+    "wilson_95": [
+      0.3968,
+      0.8922
+    ],
+    "p_value_vs_hasard": 0.17188,
+    "meilleur_que_hasard": false,
+    "n_folds": 15,
+    "n_trades_total": 10,
+    "profitable": true,
+    "in_sample_wr": 0.75,
+    "diagnostic_overfitting": {
+      "overfitting": true,
+      "ecart_in_out": 0.05,
+      "ecart_type_folds": 0.4899,
+      "n_trades": 10,
+      "signaux": [
+        "écart-type folds = 49.0% > 15% (instable)",
+        "échantillon faible : 10 trades < 100"
+      ],
+      "fiabilite": "FAIBLE"
+    },
+    "seuil_calibre": {
+      "up": 0.6,
+      "down": 0.4
+    },
+    "taux_base_up": 0.2,
+    "edge_vs_taux_base": 0.5,
+    "balanced_wr": 0.5,
+    "diagnostic_biais": {
+      "taux_base_up": 0.2,
+      "edge_vs_taux_base": 0.5,
+      "balanced_wr": 0.5,
+      "n_up_reel": 2,
+      "n_down_reel": 8,
+      "hors_biais_taux_base": false,
+      "raison": "seulement 8 trade(s) sur bougies baissières < 30 → modèle non testé en régime descendant"
+    },
+    "demo_ready": false
+  }
+}
