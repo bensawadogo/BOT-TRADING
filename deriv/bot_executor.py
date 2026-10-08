@@ -17,7 +17,7 @@ import logging
 
 import pandas as pd
 
-from deriv.client import DerivConnection
+from deriv.client import DerivConnection, is_virtual_loginid
 from deriv.constants import Config
 from deriv.data_collector import DerivDataCollector
 from deriv.ensemble_predictor import EnsemblePredictor, session_filter
@@ -52,6 +52,7 @@ class DerivBotExecutor:
         # dry_run : tout le pipeline tourne (signal, risque, Telegram) mais
         # aucun contrat n'est acheté — mode papier.
         self.dry_run = dry_run
+        self._risk_blocked = False   # alerte Telegram une fois par blocage
         self.conn: DerivConnection | None = None
         self.ensemble = EnsemblePredictor()
         self.collector: DerivDataCollector | None = None
@@ -186,6 +187,7 @@ class DerivBotExecutor:
             )
 
         await self.conn.connect()
+        await self._verify_account()
         logger.info(f"Connecté — mode : {'DEMO' if self.conn.is_demo else 'REAL'}")
 
         self.collector = self._make_collector()
@@ -277,6 +279,42 @@ class DerivBotExecutor:
 
     def stop(self):
         self._stop = True
+
+    async def _verify_account(self) -> None:
+        """Vérifie le compte RÉELLEMENT autorisé par le token.
+
+        DERIV_ACCOUNT_TYPE n'est qu'une déclaration : un token de compte réel
+        avec DERIV_ACCOUNT_TYPE=demo achetait avec de l'argent réel.
+        En --live, un compte réel ou indéterminé est refusé sans DERIV_ALLOW_REAL=1.
+        """
+        loginid = await self.conn.fetch_loginid()
+        virtual = is_virtual_loginid(loginid)
+        self.conn.is_demo = virtual
+        if virtual or Config.ALLOW_REAL:
+            return
+        compte = f"compte RÉEL ({loginid})" if loginid else "compte indéterminé"
+        if self.dry_run:
+            logger.warning(f"{compte} — toléré en dry-run (aucun achat)")
+            return
+        raise RuntimeError(
+            f"Token Deriv lié à un {compte} : achat interdit. Utilise un token "
+            "de compte DÉMO (VRTC…) ou DERIV_ALLOW_REAL=1 (déconseillé)."
+        )
+
+    async def _risk_ok(self, confiance_pct: float = 0.0) -> bool:
+        """RiskManager + alerte Telegram à l'entrée dans un blocage."""
+        ok, raison = self.risk.check(self.STAKE_AUTO, confiance_pct)
+        if ok:
+            self._risk_blocked = False
+            return True
+        if "CONFIRMATION_REQUISE" in raison:
+            await self._telegram(f"⚠️ {raison}")
+        else:
+            logger.info(f"Bloqué par Risk Manager : {raison}")
+            if not self._risk_blocked:
+                await self._telegram(f"⏸ Trading en pause : {raison}")
+            self._risk_blocked = True
+        return False
 
     def _make_collector(self) -> DerivDataCollector:
         """Collecteur sur la granularité de VALIDATION des modèles.
@@ -532,12 +570,7 @@ class DerivBotExecutor:
             return
 
         # Vérification risque
-        ok, raison = self.risk.check(self.STAKE_AUTO, result["confiance"] * 100)
-        if not ok:
-            if "CONFIRMATION_REQUISE" in raison:
-                await self._telegram(f"⚠️ {raison}")
-            else:
-                logger.info(f"Bloqué par Risk Manager : {raison}")
+        if not await self._risk_ok(result["confiance"] * 100):
             return
 
         # Alerte Telegram AVANT d'exécuter
@@ -587,12 +620,7 @@ class DerivBotExecutor:
             return
         logger.info(f"Signal drift : {sig.rationale}")
 
-        ok, raison = self.risk.check(self.STAKE_AUTO)
-        if not ok:
-            if "CONFIRMATION_REQUISE" in raison:
-                await self._telegram(f"⚠️ {raison}")
-            else:
-                logger.info(f"Bloqué par Risk Manager : {raison}")
+        if not await self._risk_ok():
             return
 
         await self._telegram(

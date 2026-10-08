@@ -114,6 +114,11 @@ class DerivTradingProxy:
             return None
 
 
+def is_virtual_loginid(loginid: str | None) -> bool:
+    """Comptes démo Deriv : loginid VRTC… (VRW… pour les wallets virtuels)."""
+    return bool(loginid) and str(loginid).upper().startswith("VR")
+
+
 class DerivConnection:
     """Wrapper autour du SDK officiel Deriv."""
 
@@ -225,6 +230,16 @@ class DerivConnection:
         except Exception as exc:
             logger.error("Deriv ping failed: %s", exc)
             return {}
+
+    async def fetch_loginid(self) -> str | None:
+        """loginid du compte RÉELLEMENT autorisé par le token (None si inconnu)."""
+        try:
+            balance = await self.client.trading.balance()
+        except Exception as exc:
+            logger.error("Lecture du compte Deriv impossible : %s", exc)
+            return None
+        loginid = getattr(balance, "loginid", "") if balance is not None else ""
+        return str(loginid) or None
 
     async def get_balance(self) -> float:
         balance = await self.client.trading.balance()
