@@ -9,7 +9,8 @@
 
 Ce projet est un écosystème de **bot de trading algorithmique et quantitatif** multi-marchés (Deriv Synthetics, Forex, Crypto) orienté Machine Learning :
 - **Deriv (Synthetics & Forex)** : Cœur opérationnel actuel (`deriv/`).
-- **Intelligence Artificielle & ML** : HMM (Hidden Markov Models), XGBoost, LSTM, filtres de Kalman, et vote d'ensemble (règle 4/5).
+- **Stratégie de trading active** : drift post-spike BOOM/CRASH en Rise/Fall (`deriv/strategies/spike_drift_binary.py`), seule règle avec un edge probable (62,5 % sur 104 trades OOS, p = 0,09). Sélection par `DERIV_STRATEGY=auto` (drift sur BOOM/CRASH, ensemble ailleurs).
+- **Intelligence Artificielle & ML** : HMM (Hidden Markov Models), XGBoost, LSTM, filtres de Kalman, TrendStrength, Momentum et RSI — **7 modèles**, trade si **au moins 4 d'accord** (`MIN_VOTES_TO_TRADE = 4`, donc 4/7). Aucun edge mesuré en WFO : l'ensemble n'est plus la source de signal sur BOOM/CRASH.
 - **Validation Statistique** : Walk-Forward Optimization (WFO), CPCV (Combinatorial Purged Cross-Validation), détection de data leakage.
 - **Gestion du Risque** : `RiskManager` dynamique, Safe Stake, Daily Stop, arrêt après séries de pertes.
 - **Dashboard & Journal** : Interface Streamlit (`dashboard/app.py`), journal SQLite (`trading_journal.db`), alertes Telegram.
@@ -81,7 +82,12 @@ C:\BOT-TRADING\
 - **Tout script utilitaire ou expérimental** doit être placé dans `scripts/`.
 - **Aucun fichier temporaire** `.txt`, `.tmp`, ou micro-script de test ne doit rester à la racine.
 
-### 4.3. Sécurité & Sérialisation
+### 4.3. Le live doit trader ce qui a été validé
+- La règle de trading vit à **un seul endroit** (`deriv/strategies/spike_drift_binary.py`) et la validation (`deriv/validate_boom_crash_big.py`) importe les mêmes fonctions. Ne jamais dupliquer la règle.
+- Bougies live = granularité de validation (`DERIV_GRANULARITY`), jamais la durée du contrat.
+- `deriv/strategies/boom_crash_drift.py` (seuil 3×std, SL/TP) n'a jamais été validée : ne pas la brancher sur l'exécution.
+
+### 4.4. Sécurité & Sérialisation
 - **SafeUnpickler** : Ne jamais utiliser un `pickle.load()` brut non sécurisé. Toujours utiliser le chargeur sécurisé whitelisté du projet.
 - **Variables d'environnement** : Ne jamais stocker de jetons API ou mots de passe dans le code. Toujours passer par la classe `Config` ou `.env`.
 
@@ -89,14 +95,24 @@ C:\BOT-TRADING\
 
 ## 🚀 5. Commandes usuelles
 
+Prérequis : **Python ≥ 3.12**, `pip install -r requirements.txt`, et `deriv-sdk` installé depuis son clone local (non publié sur PyPI ; probablement `pip install -e deriv/source`). Copier `.env.example` en `.env`.
+
 ### Exécuter les tests unitaires
 ```powershell
 .venv\Scripts\python.exe -m pytest tests/ deriv/tests/ -q --tb=short
 ```
 
-### Lancer le bot Deriv (mode dry-run sécurisé par défaut)
+### Lancer le bot Deriv
 ```powershell
+# Dry-run (défaut) : tout le pipeline tourne, aucun contrat acheté
 .venv\Scripts\python.exe main.py deriv
+# Démo : achète réellement sur le compte DEMO (refuse un compte réel tant que DERIV_ALLOW_REAL=0)
+.venv\Scripts\python.exe main.py deriv --live
+```
+
+### Verdict de la démo (200 trades)
+```powershell
+.venv\Scripts\python.exe deriv/demo_report.py --symbol BOOM500
 ```
 
 ### Lancer le dashboard Streamlit
@@ -114,6 +130,7 @@ C:\BOT-TRADING\
 ## 📋 6. Prochaines étapes / Roadmap en cours
 
 Se référer en priorité à `TASKS.md` et `state.json` :
+0. **Démo BOOM500 drift (priorité)** : `main.py deriv --live` sur compte DEMO jusqu'à 200 trades, puis `deriv/demo_report.py`. Passage en réel uniquement si p < 0,05 ET borne basse de Wilson > seuil de rentabilité (calculé sur les vrais payouts).
 1. **Forward Demo & Calibrage Réel** : Amélioration de la stratégie sur Forex réels (`frxEURUSD`, `frxUSDJPY`, `frxEURGBP`) et indices de volatilité (`R_50`, `R_75`), car le test sur `CRASH500 M1` a révélé l'absence d'edge exploitable en raison du spread et du drift asymétrique.
 2. **Dashboard Streamlit** : Poursuivre le monitoring en direct des positions, des métriques de régimes HMM et de la synchronisation avec `trading_journal.db`.
 3. **Validation Anti-Leakage continue** : S'assurer que chaque nouvelle feature passe la validation `deriv/tests/test_anti_leakage.py`.
