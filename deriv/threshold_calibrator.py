@@ -21,8 +21,10 @@ def calibrate_threshold(
     Ne pas aller au-dessus de 0.75 (causerait 0 trade).
     Retourne : (thr_up, thr_down)
     """
-    probas = np.asarray(probas, dtype=float)
-    y_true = np.asarray(y_true, dtype=int)
+    if probas is None or y_true is None:
+        return neutral_fallback
+    probas = np.atleast_1d(np.asarray(probas, dtype=float))
+    y_true = np.atleast_1d(np.asarray(y_true, dtype=int))
 
     # GARDE-FOU : desalignement probas/actuals ne doit JAMAIS
     # faire planter tout le systeme. Tronquer sur la longueur commune.
@@ -33,6 +35,14 @@ def calibrate_threshold(
             len(probas), len(y_true), n_comm,
         )
         probas, y_true = probas[:n_comm], y_true[:n_comm]
+
+    # Une seule classe observee : la balanced accuracy n'a pas de sens.
+    if np.unique(y_true).size < 2:
+        return neutral_fallback
+
+    # Minimum de trades par direction : 5, mais jamais plus que min_trades
+    # (sinon un min_trades faible serait silencieusement ignore).
+    min_side = max(1, min(5, min_trades))
 
     if candidates is None:
         candidates = [round(0.55 + i * 0.025, 3) for i in range(11)]
@@ -47,7 +57,7 @@ def calibrate_threshold(
         up_m = preds == 1
         dn_m = preds == 0
         n_up, n_dn = int(up_m.sum()), int(dn_m.sum())
-        if n_up < 5 or n_dn < 5:
+        if n_up < min_side or n_dn < min_side:
             continue
         wr_up = float((yt[up_m] == 1).mean())
         wr_down = float((yt[dn_m] == 0).mean())

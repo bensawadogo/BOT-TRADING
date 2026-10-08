@@ -13,7 +13,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from deriv.online_learner import FEATURES_ONLINE, OnlineLearner
+from deriv.online_learner import _RIVER_OK, FEATURES_ONLINE, OnlineLearner
+
+requires_river = pytest.mark.skipif(not _RIVER_OK, reason="river non installé")
 
 
 def make_df(n: int = 300) -> pd.DataFrame:
@@ -43,6 +45,7 @@ class TestOnlineLearner:
         except ImportError:
             pytest.skip("river non installé")
 
+    @requires_river
     def test_update_sans_crash(self, learner):
         r = learner.update({"hmm_confidence": 0.8, "rsi": 45.0}, label=1)
         assert r["ok"] is True
@@ -53,11 +56,13 @@ class TestOnlineLearner:
         assert r["vote"] in (0, 0.5, 1)
         assert r["active"] is False  # < 30 samples → inactif
 
+    @requires_river
     def test_features_manquantes_remplacees_par_zero(self, learner):
         """Un dict partiel ne doit jamais crasher (fill 0.0)."""
         r = learner.update({}, label=0)
         assert r["ok"] is True
 
+    @requires_river
     def test_apprend_un_pattern_separable(self, learner):
         """Sur un pattern linéairement séparable, le modèle doit prédire
         correctement APRÈS l'apprentissage (mesure via predict() pur,
@@ -80,6 +85,7 @@ class TestOnlineLearner:
             correct += int(r["vote"] == (1 if i % 2 == 0 else 0))
         assert correct / 40 > 0.55
 
+    @requires_river
     def test_persistance_state(self, learner, tmp_path):
         learner.update({"rsi": 50.0}, label=1)
         assert learner.n_samples == 1
@@ -87,6 +93,7 @@ class TestOnlineLearner:
         l2 = OnlineLearner(state_file=learner.state_file)
         assert l2.n_samples == 1
 
+    @requires_river
     def test_predict_devient_actif_apres_30_samples(self, learner):
         for i in range(35):
             feat = {"hmm_confidence": 0.9 if i % 2 else 0.1}
