@@ -26,8 +26,9 @@ from math import sqrt
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+from deriv.strategies.spike_drift_binary import PHASE  # noqa: E402
+
 MIN_TRADES = 200
-PHASE = "spike_drift_binary"
 BREAKEVEN_DEFAUT = 0.556   # payout 80 % tant qu'aucun trade gagné n'est connu
 
 

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime, timedelta
 
 import pandas as pd
 
@@ -25,14 +26,15 @@ from deriv.journal_learner import JournalLearner
 from deriv.online_learner import OnlineLearner
 from deriv.risk_manager import RiskManager, TradeResult
 from deriv.telegram import TelegramNotifier
-from deriv.strategies.boom_crash_drift import BoomCrashDriftStrategy
 from deriv.strategies.regime_momentum_strategy import (
     RegimeMomentumStrategy,
 )
 from deriv.strategies.spike_drift_binary import (
     MAX_OPEN_CONTRACTS,
+    PHASE as DRIFT_PHASE,
     SpikeDriftBinaryStrategy,
     closed_candles,
+    is_boom_crash,
 )
 from deriv.trading_journal import JournalEntry, TradingJournal
 from deriv.weekly_retrain import RetrainScheduler
@@ -85,12 +87,7 @@ class DerivBotExecutor:
             self.learner = None
             self.online = None
         self.open_trades: dict = {}  # {trade_id: {"entry": JournalEntry}}
-        # Stratégie Boom/Crash Drift (uniquement si symbole BOOM/CRASH)
-        sym = self.SYMBOL.upper()
-        self.boom_crash = (
-            BoomCrashDriftStrategy(symbol=self.SYMBOL)
-            if ("BOOM" in sym or "CRASH" in sym) else None
-        )
+        self._last_report_at: datetime | None = None   # rapport JournalLearner
         # Source de signal : la stratégie VALIDÉE (drift post-spike, Rise/Fall)
         # sur Boom/Crash ; l'ensemble n'a pas d'edge mesuré (TASKS.md).
         self.strategy_mode = self.resolve_strategy_mode(Config.STRATEGY, self.SYMBOL)
@@ -106,8 +103,7 @@ class DerivBotExecutor:
         mode = (mode or "auto").lower()
         if mode in ("drift", "ensemble"):
             return mode
-        sym = symbol.upper()
-        return "drift" if ("BOOM" in sym or "CRASH" in sym) else "ensemble"
+        return "drift" if is_boom_crash(symbol) else "ensemble"
 
     @property
     def _telegram_active(self) -> bool:
@@ -363,8 +359,6 @@ class DerivBotExecutor:
         if self.journal is None:
             return None
         try:
-            import pandas as pd
-
             from deriv.ensemble_predictor import build_features
 
             detail = result.get("detail", {})
@@ -381,11 +375,7 @@ class DerivBotExecutor:
                      f"{result['buy_votes'] if result['signal'] == 'BUY' else result['sell_votes']}/7"
             )
 
-            direction = "long" if result["signal"] == "BUY" else "short"
-            ts = pd.Timestamp.now(tz="UTC")
-            trade_id = f"{ts.strftime('%Y%m%d_%H%M')}_{self.SYMBOL}"
             last_close = float(df["close"].iloc[-1])
-
             feat = build_features(df)
             row = feat.iloc[-1] if len(feat) else None
 
@@ -396,16 +386,12 @@ class DerivBotExecutor:
                 except (KeyError, TypeError, ValueError):
                     return default
 
-            entry = JournalEntry(
-                trade_id=trade_id,
-                timestamp_entry=ts.isoformat(),
-                symbol=self.SYMBOL,
-                direction=direction,
+            return self._log_entry(
+                direction="long" if result["signal"] == "BUY" else "short",
                 entry_price=float(signal.entry_price) if signal else last_close,
                 stop_loss=float(signal.stop_loss) if signal else 0.0,
                 take_profit=float(signal.take_profit) if signal else 0.0,
                 risk_reward=float(signal.risk_reward) if signal else 0.0,
-                stake=self.STAKE_AUTO,
                 regime=str(hmm.get("regime", "Range")),
                 hmm_confidence=float(hmm.get("confiance", 0.0)),
                 adx=_f("adx_14", 0.0),
@@ -413,8 +399,6 @@ class DerivBotExecutor:
                 atr=_f("atr_14", 0.0),
                 ema_fast=last_close,
                 ema_slow=last_close,
-                volume_ratio=1.0,
-                session=self._get_session(),
                 vote_hmm=self._model_vote(detail, "HMM"),
                 vote_xgboost=self._model_vote(detail, "XGBoost"),
                 vote_lstm=self._model_vote(detail, "LSTM"),
@@ -429,16 +413,7 @@ class DerivBotExecutor:
                 strategy_phase=strat_phase,
                 pullback_candles=int(signal.pullback_candles) if signal else 0,
                 rationale=rationale,
-                spread_cost_pct=(
-                    float(signal.spread_cost_pct)
-                    if (self.boom_crash and signal and signal.spread_cost_pct)
-                    else 0.2 if self.boom_crash else 0.0
-                ),
             )
-            self.journal.log_entry(entry)
-            self.open_trades[trade_id] = {"entry": entry}
-            logger.info(f"Trade journalisé : {trade_id} | {rationale[:100]}")
-            return trade_id
         except Exception:
             logger.warning("Journalisation ignorée (erreur non bloquante)",
                            exc_info=True)
@@ -687,30 +662,45 @@ class DerivBotExecutor:
         if self.journal is None:
             return None
         try:
-            ts = pd.Timestamp.now(tz="UTC")
-            trade_id = f"{ts.strftime('%Y%m%d_%H%M%S')}_{self.SYMBOL}"
-            entry = JournalEntry(
-                trade_id=trade_id, timestamp_entry=ts.isoformat(),
-                symbol=self.SYMBOL,
+            return self._log_entry(
                 direction="long" if sig.contract_type == "CALL" else "short",
-                entry_price=sig.entry_price, stop_loss=0.0, take_profit=0.0,
-                risk_reward=0.0, stake=self.STAKE_AUTO,
-                regime="spike_drift", hmm_confidence=0.0, adx=0.0, rsi=50.0,
-                atr=0.0, ema_fast=sig.entry_price, ema_slow=sig.entry_price,
-                volume_ratio=1.0, session=self._get_session(),
-                vote_hmm=0.5, vote_xgboost=0.5, vote_lstm=0.5, vote_kalman=0.5,
-                vote_rsi=0.5, vote_trend=0.5, vote_momentum=0.5,
-                ensemble_votes=0, ensemble_signal="DRIFT",
-                strategy_phase="spike_drift_binary", pullback_candles=0,
+                entry_price=sig.entry_price,
+                regime="spike_drift",
+                ensemble_signal="DRIFT",
+                strategy_phase=DRIFT_PHASE,
                 rationale=sig.rationale,
-                spread_cost_pct=0.0,   # PnL Deriv d'un Rise/Fall déjà net
             )
-            self.journal.log_entry(entry)
-            self.open_trades[trade_id] = {"entry": entry}
-            return trade_id
         except Exception:
             logger.warning("Journalisation drift ignorée", exc_info=True)
             return None
+
+    def _log_entry(self, **champs) -> str:
+        """Écrit une entrée de journal (champs communs + spécifiques).
+
+        Source unique du format trade_id et des valeurs neutres, pour que
+        trades drift et ensemble restent cohérents dans le journal.
+        """
+        ts = pd.Timestamp.now(tz="UTC")
+        trade_id = f"{ts.strftime('%Y%m%d_%H%M%S')}_{self.SYMBOL}"
+        prix = float(champs.get("entry_price", 0.0))
+        base = dict(
+            trade_id=trade_id, timestamp_entry=ts.isoformat(), symbol=self.SYMBOL,
+            stake=self.STAKE_AUTO, session=self._get_session(),
+            stop_loss=0.0, take_profit=0.0, risk_reward=0.0,
+            regime="Range", hmm_confidence=0.0, adx=0.0, rsi=50.0, atr=0.0,
+            ema_fast=prix, ema_slow=prix, volume_ratio=1.0,
+            vote_hmm=0.5, vote_xgboost=0.5, vote_lstm=0.5, vote_kalman=0.5,
+            vote_rsi=0.5, vote_trend=0.5, vote_momentum=0.5,
+            ensemble_votes=0, ensemble_signal="HOLD", pullback_candles=0,
+            # Contrats Rise/Fall : le PnL Deriv est déjà net (pas de spread).
+            spread_cost_pct=0.0,
+        )
+        base.update(champs)
+        entry = JournalEntry(**base)
+        self.journal.log_entry(entry)
+        self.open_trades[trade_id] = {"entry": entry}
+        logger.info(f"Trade journalisé : {trade_id} | {entry.rationale[:100]}")
+        return trade_id
 
     async def _execute_contract(self, contract_type: str,
                                 journaliser=None) -> float | None:
@@ -793,6 +783,27 @@ class DerivBotExecutor:
         logger.error(f"Contrat {contract_id} non réglé après attente")
         return None
 
+    REPORT_EVERY = timedelta(days=7)
+
+    async def _rapport_periodique(self) -> None:
+        """Rapport JournalLearner au plus une fois par semaine (dès 10 trades).
+
+        Avant : envoyé après CHAQUE trade dès le 10e (~190 messages en démo).
+        """
+        if self.learner is None:
+            return
+        now = datetime.now()
+        if self._last_report_at and now - self._last_report_at < self.REPORT_EVERY:
+            return
+        try:
+            rapport = self.learner.analyse_et_recommande()
+            if rapport.get("profitable") is not None and rapport.get(
+                    "n_trades_analyses", 0) >= 10:
+                await self._telegram(rapport.get("message_telegram", ""))
+                self._last_report_at = now
+        except Exception:
+            logger.warning("Analyse journal ignorée", exc_info=True)
+
     async def _close_trade(self, contract_type: str, trade_id: str | None,
                            pnl: float | None, contract_id: int | None = None) -> None:
         """Met à jour risque, journal, apprentissage online et Telegram."""
@@ -817,7 +828,10 @@ class DerivBotExecutor:
                 # V2 — BOUCLE FERMÉE : le modèle online apprend du trade
                 # clôturé (uniquement si le résultat est réellement connu).
                 entry = self.open_trades[trade_id].get("entry")
-                if known and self.online is not None and entry is not None:
+                # Apprentissage online réservé aux trades de l'ensemble : les
+                # features d'un trade drift sont des valeurs neutres.
+                if (known and self.online is not None and entry is not None
+                        and entry.strategy_phase != DRIFT_PHASE):
                     upd = self.online.update(
                         self._online_features(entry),
                         label=int((exit_res or {}).get("pnl_net_pct", 0) > 0),
@@ -837,16 +851,7 @@ class DerivBotExecutor:
                                exc_info=True)
             finally:
                 self.open_trades.pop(trade_id, None)
-            # Boucle d'amélioration : rapport hebdo dès 10 trades clôturés.
-            try:
-                if self.learner is not None:
-                    rapport = self.learner.analyse_et_recommande()
-                    if rapport.get("profitable") is not None and rapport.get(
-                            "n_trades_analyses", 0) >= 10:
-                        await self._telegram(
-                            rapport.get("message_telegram", ""))
-            except Exception:
-                logger.warning("Analyse journal ignorée", exc_info=True)
+            await self._rapport_periodique()
 
         if not known:
             status = "⚠️ RÉSULTAT INCONNU (compté perdu)"

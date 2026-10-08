@@ -28,6 +28,13 @@ CALIB_WINDOW = 1500      # = fold_size du walk-forward
 HORIZON = 10             # bougies jusqu'à l'expiration
 MIN_THRESHOLD_PCT = 0.08
 MAX_OPEN_CONTRACTS = 3   # contrats simultanés max (spikes en grappe)
+PHASE = "spike_drift_binary"   # strategy_phase des trades drift dans le journal
+
+
+def is_boom_crash(symbol: str) -> bool:
+    """Indices Boom/Crash : seuls marchés où le drift post-spike est validé."""
+    sym = symbol.upper()
+    return "BOOM" in sym or "CRASH" in sym
 
 
 def spike_threshold_quantile(closes: np.ndarray, is_boom: bool = True,
