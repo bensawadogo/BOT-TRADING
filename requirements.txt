@@ -19,6 +19,7 @@ PyWavelets>=1.8
 xgboost>=2.0        # Modèle 2 (XGBoost). Sinon → vote neutre 0.5.
 aiohttp>=3.9        # Alertes Telegram du bot_executor.
 filelock>=3.12      # weekly_retrain.py — verrous inter-processus (optionnel).
+river>=0.21         # deriv/online_learner.py — apprentissage en ligne (V2).
 
 # TensorFlow (Modèle 3 LSTM) : optionnel — souvent lourd et variable en
 # support de plateforme. Sans lui, le vote LSTM reste neutre (0.5).
