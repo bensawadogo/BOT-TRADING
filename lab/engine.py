@@ -22,6 +22,8 @@ class Signal:
     side: int                     # +1 achat, -1 vente
     sl_atr: float | None = None   # stop = sl_atr × ATR(14) de la bougie du signal
     tp_atr: float | None = None   # objectif = tp_atr × ATR(14)
+    sl_price: float | None = None  # niveaux absolus (Fibonacci) : prioritaires sur l'ATR
+    tp_price: float | None = None
 
 
 @dataclass
@@ -91,6 +93,14 @@ def run(df: pd.DataFrame, signals: dict[int, Signal], rules: ExitRules,
         sl = entry - s.side * s.sl_atr * atr[i] if s.sl_atr else (
             entry * (1 - s.side * rules.stoploss_pct) if rules.stoploss_pct else None)
         tp = entry + s.side * s.tp_atr * atr[i] if s.tp_atr else None
+        if s.sl_price is not None:
+            sl = s.sl_price
+        if s.tp_price is not None:
+            tp = s.tp_price
+        if (sl is not None and s.side * (entry - sl) <= 0) or (
+                tp is not None and s.side * (tp - entry) <= 0):
+            pos += 1          # l'ouverture a déjà franchi un niveau : setup caduc
+            continue
         exit_px, reason, j = None, "", e_i
         for j in range(e_i, min(e_i + rules.max_hold, end)):
             if sl is not None and ((s.side > 0 and l[j] <= sl) or (s.side < 0 and h[j] >= sl)):

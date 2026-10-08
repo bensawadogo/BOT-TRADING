@@ -31,3 +31,6 @@ river>=0.21         # online_learner.py — apprentissage après chaque trade.
 # support de plateforme. Sans lui, le vote LSTM reste neutre (0.5).
 # pip install tensorflow
 
+
+# ── Labo (lab/) ─────────────────────────────────────────────────────
+jumpmodels>=0.1.1   # modèle de régime à sauts (Apache-2.0), lab/hmm_causal.py
