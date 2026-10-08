@@ -53,6 +53,15 @@ C:\BOT-TRADING\
 │   ├── strategies/       # Stratégies de trading (drift, momentum...)
 │   └── tests/            # Tests spécifiques du module deriv
 │
+├── trend_bot/            # ★ Bot de tendance MT5 (stratégie validée, voir docs/TREND_BOT.md)
+│   ├── signals.py        # Alpha : tendance 1/3/12 mois, vol ex-ante (par marché)
+│   ├── risk.py           # Modèle à sauts (filtre), coupe-circuit de drawdown
+│   ├── portfolio.py      # Vol cible du portefeuille, poids → lots, zone neutre
+│   ├── brokers/          # paper.py (CSV), mt5.py (MetaTrader5, Windows)
+│   ├── runner.py         # Cycle journalier (= backtest.py, mêmes fonctions)
+│   └── backtest.py       # Rejoue la logique exacte du bot sur FRED
+│
+├── lab/                  # Labo de recherche : moteur causal, HMM causal, Fibonacci
 ├── intelligence/         # Modèles de régimes de marché (HMM, etc.)
 ├── crypto/               # Stratégies et connecteurs crypto (HMMRegime...)
 ├── dashboard/            # Interface Streamlit (app.py)
@@ -101,7 +110,15 @@ Prérequis : **Python ≥ 3.12**, `pip install -r requirements.txt`, et `deriv-s
 
 ### Exécuter les tests unitaires
 ```powershell
-.venv\Scripts\python.exe -m pytest tests/ deriv/tests/ -q --tb=short
+.venv\Scripts\python.exe -m pytest -q --tb=short
+```
+(`testpaths` de pytest.ini est séparé par des ESPACES : avec des virgules, des dossiers étaient ignorés.)
+
+### Lancer le bot de tendance MT5 (stratégie principale)
+```powershell
+.venv\Scripts\python.exe main.py trend                 # un cycle en simulation
+.venv\Scripts\python.exe main.py trend --live --loop   # démo : un cycle par jour
+.venv\Scripts\python.exe -m trend_bot.backtest data/fred  # backtest de la logique exacte
 ```
 
 ### Lancer le bot Deriv
@@ -132,6 +149,7 @@ Prérequis : **Python ≥ 3.12**, `pip install -r requirements.txt`, et `deriv-s
 ## 📋 6. Prochaines étapes / Roadmap en cours
 
 Se référer en priorité à `TASKS.md` et `state.json` :
+0. **Bot de tendance MT5 (`trend_bot/`)** : 3 mois de démo avant tout compte réel (`MT5_ALLOW_REAL=0`). Backtest 1985-2026 : Sharpe 0,55 (t = 3,6), mais 2008-2026 faible et très sensible aux frais/swaps (`docs/reports/TREND_BOT_BACKTEST_2026-10-08.md`). Les multiplicateurs Deriv (×100 min, perte de la mise à 1 %) sont incompatibles avec cette stratégie.
 0. **Démo BOOM500 drift : ABANDONNÉE** (audit du 08/10/2026). Toute nouvelle stratégie doit d'abord battre le **taux de base** (minute quelconque) sur données réelles, avec les coûts réels du contrat réellement disponible (`scripts/audit_boom_crash.py` comme modèle).
 1. **Forward Demo & Calibrage Réel** : Amélioration de la stratégie sur Forex réels (`frxEURUSD`, `frxUSDJPY`, `frxEURGBP`) et indices de volatilité (`R_50`, `R_75`), car le test sur `CRASH500 M1` a révélé l'absence d'edge exploitable en raison du spread et du drift asymétrique.
 2. **Dashboard Streamlit** : Poursuivre le monitoring en direct des positions, des métriques de régimes HMM et de la synchronisation avec `trading_journal.db`.

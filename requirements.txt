@@ -34,3 +34,6 @@ river>=0.21         # online_learner.py — apprentissage après chaque trade.
 
 # ── Labo (lab/) ─────────────────────────────────────────────────────
 jumpmodels>=0.1.1   # modèle de régime à sauts (Apache-2.0), lab/hmm_causal.py
+
+# ── Bot de tendance (trend_bot/) ────────────────────────────────────
+MetaTrader5>=5.0.45; sys_platform == "win32"   # terminal MT5 (Deriv MT5 ou autre), Windows

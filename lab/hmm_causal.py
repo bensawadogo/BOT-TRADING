@@ -20,15 +20,7 @@ import numpy as np
 import pandas as pd
 from hmmlearn.hmm import GaussianHMM
 
-
-def features(close: pd.Series, vol_win: int = 20, mom_win: int = 10) -> pd.DataFrame:
-    """Rendement log, volatilité et momentum : chacun ne dépend que des clôtures <= t."""
-    r = np.log(close).diff()
-    return pd.DataFrame({
-        "ret": r,
-        "vol": r.rolling(vol_win).std(),
-        "mom": r.rolling(mom_win).sum(),
-    }, index=close.index)
+from trend_bot.signals import regime_features as features
 
 
 def fit_baum_welch(X: np.ndarray, n_states: int = 3, n_init: int = 3,

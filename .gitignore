@@ -22,3 +22,9 @@ research/clones/
 crypto/source/
 deriv/source/
 intelligence/source/
+
+# État et journal du bot de tendance, données téléchargées
+data/trend_state.json
+data/trend_journal.csv
+data/paper_broker.json
+data/fred/
