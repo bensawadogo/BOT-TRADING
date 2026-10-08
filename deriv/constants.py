@@ -31,7 +31,7 @@ WFO_EMBARGO = {60: 30, 300: 10, 600: 5, 1440: 5}
 DEFAULT_SYMBOL = "CRASH500"
 DEFAULT_GRANULARITY = 60
 DEFAULT_TRAIN_COUNT = 3000
-DEFAULT_DURATION_MIN = 240
+DEFAULT_DURATION_SEC = 240  # durée des contrats, en SECONDES
 DEFAULT_APP_ID = "1089"
 TOKEN_PLACEHOLDER = "REMPLACE_PAR_TON_TOKEN"
 MIN_TRADES_DEMO = 200
@@ -78,7 +78,7 @@ class Config:
     "Configuration centralisee depuis les variables d environnement"
     APP_ID = os.getenv("DERIV_APP_ID", DEFAULT_APP_ID)
     SYMBOL = os.getenv("DERIV_SYMBOL", DEFAULT_SYMBOL)
-    DURATION = int(os.getenv("DERIV_DUR", str(DEFAULT_DURATION_MIN)))
+    DURATION = int(os.getenv("DERIV_DUR", str(DEFAULT_DURATION_SEC)))  # secondes
     ACCOUNT_TYPE = os.getenv("DERIV_ACCOUNT_TYPE", "demo")
     API_TOKEN = os.getenv("DERIV_API_TOKEN", "")
     AUTO_MAX_STAKE = float(os.getenv("DERIV_AUTO_MAX_STAKE", "5"))
@@ -88,7 +88,7 @@ class Config:
     CYCLE_SEC = int(os.getenv("CYCLE_SEC", "60"))
     RUN_NETWORK_TESTS = os.getenv("RUN_NETWORK_TESTS", "0") == "1"
     ALLOW_REAL = os.getenv("DERIV_ALLOW_REAL", "0") == "1"
-    GRANULARITY = int(os.getenv("DERIV_GRANULARITY", str(DEFAULT_GRANULARITY)))
+    GRANULARITY = int(os.getenv("DERIV_GRANULARITY", str(DEFAULT_GRANULARITY)))  # secondes par bougie
     MAX_RISK_PCT = float(os.getenv("MAX_RISK_PCT", str(MAX_STAKE_PCT)))
     DAILY_STOP_PCT = float(os.getenv("DAILY_STOP_PCT", str(MAX_DAILY_LOSS)))
 

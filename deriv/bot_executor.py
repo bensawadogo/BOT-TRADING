@@ -37,7 +37,8 @@ class DerivBotExecutor:
     """Bot Deriv : collecte → ensemble 4/5 → risk → exécution CALL/PUT."""
 
     SYMBOL = Config.SYMBOL
-    DURATION = Config.DURATION              # 1 min
+    DURATION = Config.DURATION              # durée des contrats (secondes)
+    GRANULARITY = Config.GRANULARITY        # taille des bougies (secondes)
     STAKE_AUTO = Config.AUTO_STAKE  # bot-specific, < Config.AUTO_MAX_STAKE
     CYCLE_SEC = Config.CYCLE_SEC             # analyse / min
 
@@ -161,8 +162,7 @@ class DerivBotExecutor:
         await self.conn.connect()
         logger.info(f"Connecté — mode : {'DEMO' if self.conn.is_demo else 'REAL'}")
 
-        self.collector = DerivDataCollector(self.SYMBOL, self.DURATION,
-                                            connection=self.conn)
+        self.collector = self._make_collector()
         await self.collector.connect()
 
         # Historique pour init / entraînement des modèles
@@ -238,6 +238,15 @@ class DerivBotExecutor:
 
     def stop(self):
         self._stop = True
+
+    def _make_collector(self) -> DerivDataCollector:
+        """Collecteur sur la granularité de VALIDATION des modèles.
+
+        Les bougies doivent avoir la même taille qu'à l'entraînement / au WFO
+        (DERIV_GRANULARITY, M1 par défaut) — pas la durée du contrat.
+        """
+        return DerivDataCollector(self.SYMBOL, self.GRANULARITY,
+                                  connection=self.conn)
 
     # ── Session de trading (UTC) pour le journal ────────────────────
     @staticmethod
