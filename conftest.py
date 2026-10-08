@@ -22,7 +22,6 @@ def _isole_modeles_production(tmp_path, monkeypatch):
         ("deriv.online_learner", "MODELS_DIR"),
         ("deriv.online_learner", "STATE_FILE"),
         ("deriv.weekly_retrain", "DEFAULT_STATE_FILE"),
-        ("intelligence.hmm_regime", "MODEL_PATH"),
     ]
     for module_name, attr_name in _model_paths:
         try:
@@ -30,5 +29,13 @@ def _isole_modeles_production(tmp_path, monkeypatch):
             monkeypatch.setattr(mod, attr_name, str(tmp_path / "models"))
         except Exception:
             pass
+    # MODEL_PATH est un attribut de CLASSE (et un chemin de fichier) :
+    # patcher le module ne suffit pas, le test réécrivait le .pkl suivi par git.
+    try:
+        from intelligence.hmm_regime import HMMRegimeDetector
+        monkeypatch.setattr(HMMRegimeDetector, "MODEL_PATH",
+                            str(tmp_path / "models" / "hmm_model.pkl"))
+    except Exception:
+        pass
     yield
 
