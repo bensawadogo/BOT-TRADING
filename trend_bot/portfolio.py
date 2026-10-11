@@ -55,7 +55,7 @@ def weight_to_lots(weight: float, equity: float, spec: SymbolSpec) -> float:
     lots = np.floor(abs(raw) / spec.volume_step + 1e-9) * spec.volume_step
     if lots < spec.volume_min:
         return 0.0
-    return float(np.sign(raw) * min(lots, spec.volume_max))
+    return round(float(np.sign(raw) * min(lots, spec.volume_max)), 8)   # 0.30000000000000004 → 0.3
 
 
 def needs_trade(current: float, target: float, step: float, buffer: float = BUFFER) -> bool:
