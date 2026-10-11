@@ -9,7 +9,8 @@
 
 Ce projet est un écosystème de **bot de trading algorithmique et quantitatif** multi-marchés (Deriv Synthetics, Forex, Crypto) orienté Machine Learning :
 - **Deriv (Synthetics & Forex)** : Cœur opérationnel actuel (`deriv/`).
-- **Intelligence Artificielle & ML** : HMM (Hidden Markov Models), XGBoost, LSTM, filtres de Kalman, et vote d'ensemble (règle 4/5).
+- **⚠️ Audit du 08/10/2026 (`docs/reports/AUDIT_BOOM_CRASH_2026-10-08.md`)** : la stratégie drift BOOM/CRASH n'a **aucun edge** (le signal ne bat pas le taux de base) et le contrat Rise/Fall **n'existe pas** sur Boom/Crash (Multipliers/Accumulators seulement, perdants avec coûts réels). Ne pas la trader. L'ancien endpoint Deriv (`ws.derivws.com`) ne répond plus : migrer le client vers `api.derivws.com` avant tout trading.
+- **Intelligence Artificielle & ML** : HMM (Hidden Markov Models), XGBoost, LSTM, filtres de Kalman, TrendStrength, Momentum et RSI — **7 modèles**, trade si **au moins 4 d'accord** (`MIN_VOTES_TO_TRADE = 4`, donc 4/7). Aucun edge mesuré en WFO : l'ensemble n'est plus la source de signal sur BOOM/CRASH.
 - **Validation Statistique** : Walk-Forward Optimization (WFO), CPCV (Combinatorial Purged Cross-Validation), détection de data leakage.
 - **Gestion du Risque** : `RiskManager` dynamique, Safe Stake, Daily Stop, arrêt après séries de pertes.
 - **Dashboard & Journal** : Interface Streamlit (`dashboard/app.py`), journal SQLite (`trading_journal.db`), alertes Telegram.
@@ -52,6 +53,15 @@ C:\BOT-TRADING\
 │   ├── strategies/       # Stratégies de trading (drift, momentum...)
 │   └── tests/            # Tests spécifiques du module deriv
 │
+├── trend_bot/            # ★ Bot de tendance MT5 (stratégie validée, voir docs/TREND_BOT.md)
+│   ├── signals.py        # Alpha : tendance 1/3/12 mois, vol ex-ante (par marché)
+│   ├── risk.py           # Modèle à sauts (filtre), coupe-circuit de drawdown
+│   ├── portfolio.py      # Vol cible du portefeuille, poids → lots, zone neutre
+│   ├── brokers/          # paper.py (CSV), mt5.py (MetaTrader5, Windows)
+│   ├── runner.py         # Cycle journalier (= backtest.py, mêmes fonctions)
+│   └── backtest.py       # Rejoue la logique exacte du bot sur FRED
+│
+├── lab/                  # Labo de recherche : moteur causal, HMM causal, Fibonacci
 ├── intelligence/         # Modèles de régimes de marché (HMM, etc.)
 ├── crypto/               # Stratégies et connecteurs crypto (HMMRegime...)
 ├── dashboard/            # Interface Streamlit (app.py)
@@ -81,7 +91,14 @@ C:\BOT-TRADING\
 - **Tout script utilitaire ou expérimental** doit être placé dans `scripts/`.
 - **Aucun fichier temporaire** `.txt`, `.tmp`, ou micro-script de test ne doit rester à la racine.
 
-### 4.3. Sécurité & Sérialisation
+### 4.3. Le live doit trader ce qui a été validé
+- La règle de trading vit à **un seul endroit** (`deriv/strategies/spike_drift_binary.py`) et la validation (`deriv/validate_boom_crash_big.py`) importe les mêmes fonctions. Ne jamais dupliquer la règle.
+- Bougies live = granularité de validation (`DERIV_GRANULARITY`), jamais la durée du contrat.
+- `python deriv/validate_boom_crash_big.py --symbol BOOM500` (mode `rolling`, défaut) rejoue **la règle exacte du live** : seuil glissant q0,99, contrats simultanés plafonnés. Le chiffre historique de 62,5 % a été mesuré en mode `fold` (seuil figé par bloc) : relancer le mode `rolling` sur données réelles avant la démo.
+- La clôture des bougies se juge sur l'heure du **serveur** Deriv, jamais sur l'horloge du PC.
+- `deriv/strategies/boom_crash_drift.py` (seuil 3×std, SL/TP) n'a jamais été validée : ne pas la brancher sur l'exécution.
+
+### 4.4. Sécurité & Sérialisation
 - **SafeUnpickler** : Ne jamais utiliser un `pickle.load()` brut non sécurisé. Toujours utiliser le chargeur sécurisé whitelisté du projet.
 - **Variables d'environnement** : Ne jamais stocker de jetons API ou mots de passe dans le code. Toujours passer par la classe `Config` ou `.env`.
 
@@ -89,14 +106,32 @@ C:\BOT-TRADING\
 
 ## 🚀 5. Commandes usuelles
 
+Prérequis : **Python ≥ 3.12**, `pip install -r requirements.txt`, et `deriv-sdk` installé depuis son clone local (non publié sur PyPI ; probablement `pip install -e deriv/source`). Copier `.env.example` en `.env`.
+
 ### Exécuter les tests unitaires
 ```powershell
-.venv\Scripts\python.exe -m pytest tests/ deriv/tests/ -q --tb=short
+.venv\Scripts\python.exe -m pytest -q --tb=short
+```
+(`testpaths` de pytest.ini est séparé par des ESPACES : avec des virgules, des dossiers étaient ignorés.)
+
+### Lancer le bot de tendance MT5 (stratégie principale)
+```powershell
+.venv\Scripts\python.exe main.py trend                 # un cycle en simulation
+.venv\Scripts\python.exe main.py trend --live --loop   # démo : un cycle par jour
+.venv\Scripts\python.exe -m trend_bot.backtest data/fred  # backtest de la logique exacte
 ```
 
-### Lancer le bot Deriv (mode dry-run sécurisé par défaut)
+### Lancer le bot Deriv
 ```powershell
+# Dry-run (défaut) : tout le pipeline tourne, aucun contrat acheté
 .venv\Scripts\python.exe main.py deriv
+# Démo : achète réellement sur le compte DEMO (refuse un compte réel tant que DERIV_ALLOW_REAL=0)
+.venv\Scripts\python.exe main.py deriv --live
+```
+
+### Verdict de la démo (200 trades)
+```powershell
+.venv\Scripts\python.exe deriv/demo_report.py --symbol BOOM500
 ```
 
 ### Lancer le dashboard Streamlit
@@ -114,6 +149,8 @@ C:\BOT-TRADING\
 ## 📋 6. Prochaines étapes / Roadmap en cours
 
 Se référer en priorité à `TASKS.md` et `state.json` :
+0. **Bot de tendance MT5 (`trend_bot/`)** : 3 mois de démo avant tout compte réel (`MT5_ALLOW_REAL=0`). Backtest 1985-2026 : Sharpe 0,55 (t = 3,6), mais 2008-2026 faible et très sensible aux frais/swaps (`docs/reports/TREND_BOT_BACKTEST_2026-10-08.md`). Les multiplicateurs Deriv (×100 min, perte de la mise à 1 %) sont incompatibles avec cette stratégie.
+0. **Démo BOOM500 drift : ABANDONNÉE** (audit du 08/10/2026). Toute nouvelle stratégie doit d'abord battre le **taux de base** (minute quelconque) sur données réelles, avec les coûts réels du contrat réellement disponible (`scripts/audit_boom_crash.py` comme modèle).
 1. **Forward Demo & Calibrage Réel** : Amélioration de la stratégie sur Forex réels (`frxEURUSD`, `frxUSDJPY`, `frxEURGBP`) et indices de volatilité (`R_50`, `R_75`), car le test sur `CRASH500 M1` a révélé l'absence d'edge exploitable en raison du spread et du drift asymétrique.
 2. **Dashboard Streamlit** : Poursuivre le monitoring en direct des positions, des métriques de régimes HMM et de la synchronisation avec `trading_journal.db`.
 3. **Validation Anti-Leakage continue** : S'assurer que chaque nouvelle feature passe la validation `deriv/tests/test_anti_leakage.py`.

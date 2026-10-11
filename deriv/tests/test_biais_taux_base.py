@@ -918,8 +918,10 @@ class TestCalibrateThresholdDirect:
         assert (thr_up, thr_down) == (0.60, 0.40)
 
     def test_min_trades_zero_uses_all_candidates(self):
-        probas = np.array([0.9, 0.1, 0.9, 0.1])
-        actuals = np.array([1, 0, 1, 0])
+        # >= 5 trades par côté : le garde-fou n_up/n_dn < 5 du calibreur
+        # (anti-surapprentissage) ne doit pas masquer le premier candidat.
+        probas = np.array([0.9, 0.1] * 5)
+        actuals = np.array([1, 0] * 5)
         thr_up, thr_down = calibrate_threshold(probas, actuals, min_trades=0)
         assert thr_up == pytest.approx(0.55)
         assert thr_down == pytest.approx(0.45)

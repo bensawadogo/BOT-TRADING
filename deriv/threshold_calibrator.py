@@ -21,6 +21,8 @@ def calibrate_threshold(
     Ne pas aller au-dessus de 0.75 (causerait 0 trade).
     Retourne : (thr_up, thr_down)
     """
+    if probas is None or y_true is None:
+        return neutral_fallback
     probas = np.asarray(probas, dtype=float)
     y_true = np.asarray(y_true, dtype=int)
 

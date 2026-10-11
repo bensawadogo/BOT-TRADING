@@ -5,6 +5,17 @@ Les autres modules doivent IMPORTER depuis ce fichier.
 """
 from __future__ import annotations
 import os
+from pathlib import Path
+
+# .env chargé ICI, avant la classe Config : ses attributs sont lus à l'import.
+# (Avant, load_dotenv() était appelé après coup → token, symbole, capital du
+# .env ignorés.) Les tests désactivent ce chargement (BOT_SKIP_DOTENV=1).
+if os.getenv("BOT_SKIP_DOTENV") != "1":
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=False)
+    except ImportError:
+        pass
 
 BREAKEVEN = 0.556
 BREAKEVEN_WINRATE = 55.6
@@ -31,7 +42,7 @@ WFO_EMBARGO = {60: 30, 300: 10, 600: 5, 1440: 5}
 DEFAULT_SYMBOL = "CRASH500"
 DEFAULT_GRANULARITY = 60
 DEFAULT_TRAIN_COUNT = 3000
-DEFAULT_DURATION_MIN = 240
+DEFAULT_DURATION_SEC = 240  # durée des contrats, en SECONDES
 DEFAULT_APP_ID = "1089"
 TOKEN_PLACEHOLDER = "REMPLACE_PAR_TON_TOKEN"
 MIN_TRADES_DEMO = 200
@@ -78,7 +89,7 @@ class Config:
     "Configuration centralisee depuis les variables d environnement"
     APP_ID = os.getenv("DERIV_APP_ID", DEFAULT_APP_ID)
     SYMBOL = os.getenv("DERIV_SYMBOL", DEFAULT_SYMBOL)
-    DURATION = int(os.getenv("DERIV_DUR", str(DEFAULT_DURATION_MIN)))
+    DURATION = int(os.getenv("DERIV_DUR", str(DEFAULT_DURATION_SEC)))  # secondes
     ACCOUNT_TYPE = os.getenv("DERIV_ACCOUNT_TYPE", "demo")
     API_TOKEN = os.getenv("DERIV_API_TOKEN", "")
     AUTO_MAX_STAKE = float(os.getenv("DERIV_AUTO_MAX_STAKE", "5"))
@@ -88,7 +99,7 @@ class Config:
     CYCLE_SEC = int(os.getenv("CYCLE_SEC", "60"))
     RUN_NETWORK_TESTS = os.getenv("RUN_NETWORK_TESTS", "0") == "1"
     ALLOW_REAL = os.getenv("DERIV_ALLOW_REAL", "0") == "1"
-    GRANULARITY = int(os.getenv("DERIV_GRANULARITY", str(DEFAULT_GRANULARITY)))
+    GRANULARITY = int(os.getenv("DERIV_GRANULARITY", str(DEFAULT_GRANULARITY)))  # secondes par bougie
     MAX_RISK_PCT = float(os.getenv("MAX_RISK_PCT", str(MAX_STAKE_PCT)))
     DAILY_STOP_PCT = float(os.getenv("DAILY_STOP_PCT", str(MAX_DAILY_LOSS)))
 
@@ -96,6 +107,8 @@ class Config:
     MAX_CONSECUTIVE = int(os.getenv("MAX_CONSECUTIVE", "3"))
     AUTO_STAKE = float(os.getenv("AUTO_STAKE", "2.0"))
     JOURNAL_DB = os.getenv("JOURNAL_DB", "")
+    # auto : drift validé sur BOOM/CRASH, ensemble ailleurs | drift | ensemble
+    STRATEGY = os.getenv("DERIV_STRATEGY", "auto").strip().lower()
 
     @classmethod
     def validate(cls):

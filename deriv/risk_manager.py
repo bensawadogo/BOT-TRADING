@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Optional
 from deriv.constants import Config
 
@@ -77,6 +77,14 @@ class RiskManager:
         # État temporel
         self.cooldown_until: Optional[datetime] = None
         self.last_trade_time: Optional[datetime] = None
+        self._day: date = date.today()   # jour auquel se rapporte daily_loss
+
+    def _roll_day(self) -> None:
+        """Nouveau jour → la perte journalière repart de zéro."""
+        today = date.today()
+        if today != self._day:
+            self._day = today
+            self.daily_loss = 0.0
 
     def max_stake(self) -> float:
         """Calcule le stake maximum autorisé (2% du capital par défaut)."""
@@ -146,13 +154,23 @@ class RiskManager:
 
     def can_trade(self) -> tuple[bool, str]:
         """Vérifie si on peut trader selon les règles de risque."""
+        self._roll_day()
         if self.daily_loss >= self.capital * self.daily_stop_pct:
+            # Stop journalier : reprise le lendemain (_roll_day).
             return False, f"Perte journalière max atteinte ({self.daily_loss:.2f}$)"
         if self.consecutive_loss >= self.max_consecutive:
-            return (
-                False,
-                f"{self.max_consecutive} pertes consécutives — pause {self.COOLDOWN_MINUTES}min",
-            )
+            if self.cooldown_until is None:
+                self.cooldown_until = datetime.now() + timedelta(
+                    minutes=self.COOLDOWN_MINUTES)
+            if datetime.now() < self.cooldown_until:
+                return (
+                    False,
+                    f"{self.max_consecutive} pertes consécutives — pause {self.COOLDOWN_MINUTES}min",
+                )
+            # Pause terminée : on repart (avant : blocage définitif, le
+            # compteur n'étant remis à zéro que par un trade gagnant).
+            self.consecutive_loss = 0
+            self.cooldown_until = None
         if self.cooldown_until and datetime.now() < self.cooldown_until:
             rest = int((self.cooldown_until - datetime.now()).total_seconds() // 60)
             return False, f"Refroidissement : reprise dans {max(rest, 1)} min"
@@ -160,6 +178,7 @@ class RiskManager:
 
     def record_result(self, profit_loss: float):
         """Enregistre le résultat d'un trade."""
+        self._roll_day()
         self.total_trades += 1
         self.last_trade_time = datetime.now()
         if profit_loss < 0:
