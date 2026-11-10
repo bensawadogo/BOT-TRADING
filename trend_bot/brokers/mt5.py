@@ -52,6 +52,12 @@ class MT5Broker:
             return None
         return acc.trade_mode == self.mt5.ACCOUNT_TRADE_MODE_DEMO
 
+    def can_trade(self) -> bool:
+        """Trading algorithmique autorisé : bouton « Algo Trading » du terminal ET du compte.
+        Sans lui, MT5 refuse chaque ordre (retcode 10027)."""
+        terminal, compte = self.mt5.terminal_info(), self.mt5.account_info()
+        return bool(terminal and terminal.trade_allowed and compte and compte.trade_allowed)
+
     def equity(self) -> float:
         return float(self.mt5.account_info().equity)
 
@@ -76,11 +82,24 @@ class MT5Broker:
         return pd.Series(df["close"].to_numpy(float), index=idx, name=symbol)
 
     def spec(self, symbol: str) -> SymbolSpec:
+        self.mt5.symbol_select(symbol, True)      # prix disponible même hors du panier
         info = self.mt5.symbol_info(symbol)
         tick = self.mt5.symbol_info_tick(symbol)
-        price = (tick.bid + tick.ask) / 2
+        price = (tick.bid + tick.ask) / 2 if tick and tick.bid > 0 else 0.0
+        if price <= 0:                            # marché fermé (férié) : dernière clôture
+            rates = self.mt5.copy_rates_from_pos(symbol, self.mt5.TIMEFRAME_D1, 0, 1)
+            price = float(rates["close"][-1]) if rates is not None and len(rates) else 0.0
         # valeur d'1 lot en devise du compte = prix × (valeur d'un tick / taille d'un tick)
         lot_value = price * info.trade_tick_value / info.trade_tick_size
+        if info.currency_profit == self.mt5.account_info().currency:
+            # Même devise : la taille de contrat donne la même valeur, sauf spécification
+            # incohérente (vu sur NGAS : contrat 10 000, valeur de tick d'une seule unité).
+            # On garde la plus grande : le bot peut sous-dimensionner, jamais sur-dimensionner.
+            par_contrat = price * info.trade_contract_size
+            if abs(par_contrat - lot_value) > 0.01 * max(par_contrat, lot_value):
+                log.warning("%s : spécification incohérente (lot = %.2f selon le tick, %.2f selon "
+                            "le contrat) : la plus grande est retenue", symbol, lot_value, par_contrat)
+            lot_value = max(lot_value, par_contrat)
         return SymbolSpec(lot_value, info.volume_min, info.volume_max, info.volume_step)
 
     # ── ordres ───────────────────────────────────────────────────────────────

@@ -100,3 +100,32 @@ def fibo_signals(df: pd.DataFrame, k: float = 2.0, zone=(0.382, 0.618),
                 sigs[t] = Signal(-1, sl_price=H1, tp_price=L1 - (ext - 1) * rng)
                 used = True
     return sigs
+
+
+def zone_series(close: pd.Series, atr: np.ndarray, k: float = 2.0, zone=(0.382, 0.618),
+                invalid: float = 0.786) -> pd.DataFrame:
+    """Version « timing d'entrée » sur clôtures seules : colonnes `long` / `short`, True
+    quand la clôture est dans la zone de retracement (38,2 %-61,8 %) de la dernière jambe
+    d'une structure intacte dans ce sens. Mêmes pivots causaux que `fibo_signals`."""
+    df = pd.DataFrame({"high": close, "low": close, "open": close, "close": close})
+    sw = zigzag(df, k, atr)
+    c = close.to_numpy(float)
+    n = len(c)
+    out = np.zeros((n, 2), dtype=bool)
+    deep_l = deep_s = 0.0
+    for t in range(n):
+        if sw.new[t]:
+            deep_l = deep_s = 0.0
+        H1, H0, L1, L0 = sw.h1[t], sw.h0[t], sw.l1[t], sw.l0[t]
+        if np.isnan(H0) or np.isnan(L0) or H1 <= L1:
+            continue
+        rng = H1 - L1
+        if sw.last[t] == 1 and H1 > H0 and L1 > L0:
+            d = (H1 - c[t]) / rng
+            deep_l = max(deep_l, d)
+            out[t, 0] = zone[0] <= d <= zone[1] and deep_l <= invalid
+        elif sw.last[t] == -1 and L1 < L0 and H1 < H0:
+            d = (c[t] - L1) / rng
+            deep_s = max(deep_s, d)
+            out[t, 1] = zone[0] <= d <= zone[1] and deep_s <= invalid
+    return pd.DataFrame(out, index=close.index, columns=["long", "short"])

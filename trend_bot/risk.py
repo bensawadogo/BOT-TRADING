@@ -1,8 +1,9 @@
 """Risque : filtre de régime (modèle à sauts) et coupe-circuit de drawdown.
 
 Le régime ne sert PAS à choisir le sens (sans avantage au backtest) : il coupe la
-position quand il contredit la tendance. Sur 1985-2026 ce filtre a réduit le drawdown
-maximal de 32 % à 22 % pour un rendement presque identique.
+position quand il contredit la tendance. Aux coûts réels de Deriv, sur 1985-2026, il réduit
+le drawdown maximal de 42 % à 30 % et le Sharpe passe de 0,22 à 0,28 ; depuis 1996 il évite
+des pertes (−0,03 → +0,06) sans créer de rendement (VERIFICATION_LOGIQUE_2026-11-10.md).
 """
 from __future__ import annotations
 
@@ -31,41 +32,51 @@ def _label(states: np.ndarray) -> np.ndarray:
     return np.where(states == 0, 1, np.where(states == 2, -1, 0))
 
 
+def _refits(dates: pd.DatetimeIndex, train_len: int) -> np.ndarray:
+    """Positions des ré-entraînements : première bougie de chaque mois, avec au moins
+    `train_len` bougies avant. Ancrées au calendrier, elles ne dépendent pas du début de
+    l'historique : le live et le backtest ré-entraînent aux mêmes dates."""
+    mois = dates.to_period("M")
+    debuts = np.flatnonzero(np.r_[True, mois[1:] != mois[:-1]])
+    return debuts[debuts >= train_len]
+
+
+def _states(X: np.ndarray, k: int, fin: int, train_len: int, jump_penalty: float) -> np.ndarray:
+    """Entraîne sur X[k - train_len:k], puis états en ligne (causaux) de k à fin - 1."""
+    jm, mu, sd = _fit_jump(X[k - train_len:k], jump_penalty)
+    return _label(np.asarray(jm.predict_online((X[k - train_len:fin] - mu) / sd)))[train_len:]
+
+
 def regime_now(close: pd.Series, train_len: int = TRAIN_LEN,
                jump_penalty: float = JUMP_PENALTY) -> int | None:
-    """État actuel -1 / 0 / +1 du modèle à sauts entraîné sur les `train_len`
-    derniers jours. None si l'historique est trop court (pas de filtre)."""
-    X = regime_features(close).dropna().to_numpy(float)
-    if len(X) < train_len:
+    """État -1 / 0 / +1 de la dernière clôture, calculé exactement comme `regime_series`
+    (même ré-entraînement mensuel). None si l'historique est trop court (pas de filtre)."""
+    F = regime_features(close).dropna()
+    ks = _refits(F.index, train_len)
+    if not len(ks):
         return None
-    X = X[-train_len:]
-    jm, mu, sd = _fit_jump(X, jump_penalty)
-    return int(_label(np.asarray(jm.predict_online((X - mu) / sd)))[-1])
+    return int(_states(F.to_numpy(float), ks[-1], len(F), train_len, jump_penalty)[-1])
 
 
-def regime_series(close: pd.Series, train_len: int = TRAIN_LEN, refit_every: int = 21,
+def regime_series(close: pd.Series, train_len: int = TRAIN_LEN,
                   jump_penalty: float = JUMP_PENALTY) -> pd.Series:
-    """Version backtest de `regime_now` : mêmes entraînements, refaits tous les
-    `refit_every` jours sur les `train_len` jours précédents ; état en ligne (causal)."""
-    F = regime_features(close)
-    valid = F.notna().all(axis=1).to_numpy()
+    """Version backtest de `regime_now` : un modèle par mois, entraîné sur les `train_len`
+    jours précédant le 1er jour du mois, puis états en ligne (causal) jusqu'au mois suivant."""
+    F = regime_features(close).dropna()
     X = F.to_numpy(float)
     out = pd.Series(np.nan, index=close.index)
-    idx = np.flatnonzero(valid)
-    for k in range(train_len, len(idx), refit_every):
-        tr = X[idx[k - train_len:k]]
-        jm, mu, sd = _fit_jump(tr, jump_penalty)
-        seg = idx[k - train_len:min(k + refit_every, len(idx))]
-        st = _label(np.asarray(jm.predict_online((X[seg] - mu) / sd)))[train_len:]
-        out.iloc[seg[train_len:]] = st
+    ks = _refits(F.index, train_len)
+    for k, fin in zip(ks, [*ks[1:], len(F)]):
+        out.loc[F.index[k:fin]] = _states(X, k, fin, train_len, jump_penalty)
     return out
 
 
-def apply_regime(signal: float, state: int | None) -> float:
-    """Annule le signal de tendance quand le régime dit l'inverse."""
+def apply_regime(signal: float, state: int | None, facteur: float = 0.0) -> float:
+    """Quand le régime dit l'inverse de la tendance, ne garde que `facteur` du signal
+    (0 : annulé, 0,5 : réduit de moitié)."""
     if state is None or np.isnan(signal):
         return signal
-    return 0.0 if np.sign(signal) * state < 0 else signal
+    return facteur * signal if np.sign(signal) * state < 0 else signal
 
 
 @dataclass

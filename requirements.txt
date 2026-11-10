@@ -1,39 +1,20 @@
-# Python 3.12 minimum (f-strings imbriquées dans walk_forward_optimizer.py).
-#
-# deriv-sdk n'est PAS publié sur PyPI : l'installer depuis son clone local
-# (probablement deriv/source/, ignoré par git → pip install -e deriv/source)
-# Sans lui, seul deriv/client.py (connexion réseau) est indisponible.
-#
-# python-deriv-api est incompatible : websockets==10.3 vs deriv-sdk (websockets>=16).
-# Le client Deriv du projet utilise deriv-sdk.
-
-deriv-sdk>=1.0.0
-websockets>=16.0
-hmmlearn>=0.3.3
-scikit-learn>=1.5
-pandas>=2.2
-numpy>=2.0
-TA-Lib>=0.7.1
-ta>=0.11.0
-ccxt>=4.5
-streamlit>=1.63
-plotly>=7.0
-python-dotenv>=1.0
-PyWavelets>=1.8
-
-# ── Bot Deriv ensemble 4/5 ──────────────────────────────────────────
-xgboost>=2.0        # Modèle 2 (XGBoost). Sinon → vote neutre 0.5.
-aiohttp>=3.9        # Alertes Telegram du bot_executor.
-filelock>=3.12      # weekly_retrain.py — verrous inter-processus (optionnel).
-river>=0.21         # online_learner.py — apprentissage après chaque trade.
-
-# TensorFlow (Modèle 3 LSTM) : optionnel — souvent lourd et variable en
-# support de plateforme. Sans lui, le vote LSTM reste neutre (0.5).
-# pip install tensorflow
-
-
-# ── Labo (lab/) ─────────────────────────────────────────────────────
-jumpmodels>=0.1.1   # modèle de régime à sauts (Apache-2.0), lab/hmm_causal.py
+# Python 3.12 ou 3.13 (testé en 3.13). Versions exactes testées : requirements-lock.txt
+#   py -3.13 -m venv .venv
+#   .venv\Scripts\python.exe -m pip install -r requirements.txt
 
 # ── Bot de tendance (trend_bot/) ────────────────────────────────────
-MetaTrader5>=5.0.45; sys_platform == "win32"   # terminal MT5 (Deriv MT5 ou autre), Windows
+numpy>=2.0
+pandas>=2.2
+scikit-learn>=1.5      # requis par jumpmodels
+jumpmodels>=0.1.1      # filtre de régime à sauts (Apache-2.0)
+python-dotenv>=1.0
+MetaTrader5>=5.0.45; sys_platform == "win32"   # terminal MT5 (Deriv MT5 ou autre)
+
+# ── Labo de recherche (lab/) ────────────────────────────────────────
+hmmlearn>=0.3.3        # lab/hmm_causal.py
+
+# ── Dashboard (dashboard/app.py) ────────────────────────────────────
+streamlit>=1.40
+
+# ── Tests ────────────────────────────────────────────────────────────
+pytest>=8.0

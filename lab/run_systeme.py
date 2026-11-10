@@ -20,12 +20,8 @@ from lab import daily as D
 from lab.engine import ExitRules, random_baseline, run
 from lab.fibo import fibo_signals
 from lab.hmm_causal import walk_forward_hmm, walk_forward_jump
+from trend_bot.data import FRED
 
-FRED = {  # identifiant: coût par unité de rotation (fraction)
-    "DEXUSEU": 1e-4, "DEXUSUK": 1e-4, "DEXJPUS": 1e-4, "DEXUSAL": 1e-4, "DEXCAUS": 1e-4,
-    "DEXSZUS": 1e-4, "DEXUSNZ": 2e-4, "DEXMXUS": 3e-4, "DEXNOUS": 3e-4, "DEXSDUS": 3e-4,
-    "DCOILWTICO": 5e-4, "DCOILBRENTEU": 5e-4, "NASDAQCOM": 2e-4, "DHHNGSP": 1e-3,
-}
 PERIODES = {"1990-2007": ("1990", "2007"), "2008-2016": ("2008", "2016"),
             "2017-2026": ("2017", "2026")}
 

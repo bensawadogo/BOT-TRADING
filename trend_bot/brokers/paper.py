@@ -43,6 +43,9 @@ class PaperBroker:
     def is_demo(self) -> bool:
         return True
 
+    def can_trade(self) -> bool:
+        return True
+
     def equity(self) -> float:
         return self.cash + sum(l * (self._price(s) - self.entry[s]) for s, l in self.pos.items())
 

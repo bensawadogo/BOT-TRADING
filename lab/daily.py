@@ -11,25 +11,14 @@ Données : clôtures journalières FRED (forex depuis 1971, pétrole, Nasdaq, ga
 """
 from __future__ import annotations
 
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
+
+from trend_bot.data import charger_fred  # noqa: F401 — réexporté pour le labo
 
 ANN = 252
 VOL_CIBLE = 0.10          # 10 % annualisé par marché, comme AQR
 LEVIER_MAX = 4.0          # plafond de la mise à l'échelle par la volatilité
-
-
-def charger_fred(dossier: str | Path, ids: list[str], depuis: str = "1990") -> dict[str, pd.Series]:
-    out = {}
-    for s in ids:
-        x = pd.read_csv(Path(dossier) / f"{s}.csv", index_col=0, parse_dates=True).iloc[:, 0]
-        x = pd.to_numeric(x, errors="coerce").dropna()
-        x = x[x > 0][depuis:]
-        if len(x) > 500:
-            out[s] = x
-    return out
 
 
 def vol_ex_ante(close: pd.Series, span: int = 60) -> pd.Series:

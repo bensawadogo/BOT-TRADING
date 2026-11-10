@@ -51,6 +51,8 @@ class SymbolSpec:
 
 
 def weight_to_lots(weight: float, equity: float, spec: SymbolSpec) -> float:
+    if spec.lot_value <= 0:                       # prix inconnu : ne rien trader
+        return 0.0
     raw = weight * equity / spec.lot_value
     lots = np.floor(abs(raw) / spec.volume_step + 1e-9) * spec.volume_step
     if lots < spec.volume_min:

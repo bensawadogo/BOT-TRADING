@@ -1,4 +1,4 @@
-"""Télécharge les clôtures journalières FRED utilisées par `lab.run_systeme daily`.
+"""Télécharge les clôtures journalières FRED du backtest (`trend_bot.data.FRED`, `trend_bot.backtest`).
 
 Usage : python scripts/fetch_fred.py data/fred
 """
@@ -8,7 +8,7 @@ from pathlib import Path
 
 IDS = ["DEXUSEU", "DEXUSUK", "DEXJPUS", "DEXUSAL", "DEXCAUS", "DEXSZUS", "DEXUSNZ",
        "DEXMXUS", "DEXNOUS", "DEXSDUS", "DCOILWTICO", "DCOILBRENTEU", "NASDAQCOM",
-       "DHHNGSP", "DGS10"]  # mêmes séries que lab.run_systeme.FRED (+ taux 10 ans)
+       "DHHNGSP", "DGS10"]  # mêmes séries que trend_bot.data.FRED (+ taux 10 ans)
 
 dossier = Path(sys.argv[1] if len(sys.argv) > 1 else "data/fred")
 dossier.mkdir(parents=True, exist_ok=True)
