@@ -21,3 +21,4 @@ est archivé : `git checkout archive/deriv-ensemble`.
 | 10/11/2026 | `PORTAGE_2026-11-10.md` | Signal de portage : rien chez Deriv (Sharpe dégonflé 0,80) ; sur futures sans swap, portage/vol Sharpe 0,63, dégonflé 0,99 — premier résultat au-dessus du seuil, support non détenu |
 | 10/11/2026 | `HEURE_ET_CONFIRMATION_2026-11-10.md` | Spread Deriv quasi fixe de 7 h à 16 h (cycle reste à 7 h, éviter 20 h) ; délai de confirmation 3/5/10 jours : toujours moins bien que le bot (P > T 0,03-0,07), classé |
 | 10/11/2026 | `SCAN_MARCHES_2026-11-10.md` | 124 marchés Deriv (crypto, actions, indices, métaux, ETF, agricoles, croisés) : aucun avantage de tendance, 31 perdants par les swaps |
+| 12/11/2026 | `STOPS_2026-11-12.md` | Stops par position : les larges ne se déclenchent presque jamais, le serré gagne 0,03 de Sharpe sans être significatif (P > T 0,81) et ne réduit pas les profits rendus (54 %) ; stop catastrophe chez le courtier à ajouter avant le réel |

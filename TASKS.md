@@ -11,6 +11,7 @@ Le bot tourne sans fenêtre ouverte : processus `main.py trend --live --loop` pl
 - [ ] Équité de la démo contre celle du backtest sur la même période (`main.py dashboard`), sans conclure avant 63 jours.
 - [ ] Aucun ordre refusé (retcode différent de 10009, Algo Trading coupé) et coupe-circuit non déclenché (`tripped` dans `data/trend_state.json`).
 - [ ] Swaps réellement débités sur les positions contre le surcoût supposé par le backtest.
+- [ ] Décider du stop catastrophe chez le courtier (voir « Pistes ouvertes »), pas avant la fin de la démo.
 - [ ] Côté PC (à faire par Ben) : minuteurs de réveil autorisés, pas de veille sur secteur, connexion automatique après redémarrage.
 
 ## Maintenant
@@ -43,6 +44,9 @@ Le bot tourne sans fenêtre ouverte : processus `main.py trend --live --loop` pl
   `exposition`, `raison`).
 
 ## Pistes ouvertes (à mesurer avant d'y croire)
+- [ ] **Stop catastrophe chez le courtier avant tout argent réel** : mesuré le 12/11 (`STOPS_2026-11-12.md`), il ne coûte
+  rien au backtest (jamais déclenché) et protège d'un PC éteint ou de MT5 déconnecté. Distance candidate : 5 σ mensuel
+  depuis l'entrée (≈ 1,4 × la volatilité annuelle). Demande de modifier `runner.py` avec son test ; à décider après la démo.
 - [x] **Signal de portage (carry)** mesuré le 10/11 (`lab/carry.py`, `PORTAGE_2026-11-10.md`) : chez
   Deriv aucune variante ne passe (dégonflé 0,80) ; sur futures sans swap, portage/vol Sharpe 0,63
   (dégonflé 0,99), décorrélé de la tendance (0,30). Le surcoût de swap Deriv coûte 0,22 de Sharpe
@@ -72,6 +76,8 @@ Le bot tourne sans fenêtre ouverte : processus `main.py trend --live --loop` pl
 - Changer l'heure du cycle (session américaine) ou ajouter un délai de confirmation du signal :
   mesurés le 10/11/2026, spreads quasi fixes et confirmation toujours perdante
   (`HEURE_ET_CONFIRMATION_2026-11-10.md`).
+- Stop suiveur serré ou moyen par position : mesuré le 12/11/2026, +0,03 de Sharpe non significatif (P > T 0,81) et
+  aucune baisse des profits rendus (`STOPS_2026-11-12.md`). Ne pas régler la distance sur 1985-2026 ; à retester hors échantillon.
 - Fibonacci en timing d'entrée, tendance EWMAC, désaccord lent/rapide, régime adouci :
   mesurés le 06/11/2026, aucun gain (`ESSAIS_E0_E4_2026-11-06.md`).
 - Bot Deriv ensemble 7 modèles / options binaires / BOOM-CRASH : aucun edge (audits 14/09

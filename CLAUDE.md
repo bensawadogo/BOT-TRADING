@@ -20,7 +20,9 @@ n'arrivent dans le bot.
   portage ne passe pas chez Deriv ; sur futures sans swap il ferait 0,63 de Sharpe, décorrélé de la
   tendance : seule piste au-dessus du seuil, sur un support non détenu (`docs/reports/PORTAGE_2026-11-10.md`). Tendance continue, désaccord
   lent/rapide, régime adouci, Fibonacci : aucune variante ne bat le bot d'origine
-  (`docs/reports/ESSAIS_E0_E4_2026-11-06.md`). **124 autres marchés Deriv** (crypto, actions,
+  (`docs/reports/ESSAIS_E0_E4_2026-11-06.md`). Le bot n'a aucun stop par position (seul le coupe-circuit du
+  portefeuille protège) : le stop serré gagne 0,03 de Sharpe sans être significatif et ne réduit pas les profits
+  rendus, les stops larges ne se déclenchent presque jamais (`docs/reports/STOPS_2026-11-12.md`). **124 autres marchés Deriv** (crypto, actions,
   indices, métaux, ETF, agricoles, croisés) balayés le 10/11/2026 : aucun avantage de tendance,
   31 perdants significatifs à cause des swaps ; la crypto gagne par bêta et fait moins bien
   qu'acheter-et-garder (`docs/reports/SCAN_MARCHES_2026-11-10.md`). Le panier reste le forex + Nasdaq.
@@ -42,7 +44,7 @@ BOT-TRADING/                  (C:\Users\sawad\BOT-TRADING)
 │   ├── data.py               # séries FRED du backtest + correspondance avec les marchés
 │   ├── config.py             # panier, paramètres (.env), chemins
 │   └── brokers/              # mt5.py (MetaTrader5), paper.py (CSV, tests)
-├── lab/                      # recherche : moteur causal, HMM causal, Fibonacci, carry.py (portage), confirmation.py
+├── lab/                      # recherche : moteur causal, HMM causal, Fibonacci, carry.py (portage), confirmation.py, stops.py
 ├── dashboard/app.py          # Streamlit : lit le journal du bot, rien d'inventé
 ├── scripts/                  # fetch_fred.py (données), couts_mt5.py (coûts réels), scan_marches.py (autres marchés),
 │                             # lancer_bot.ps1 (tâche planifiée : réveil 06:45 UTC, un seul exemplaire)

@@ -32,4 +32,5 @@ data/news_cache.json
 data/*.db
 data/carry_rets.pkl
 data/confirmation_rets.pkl
+data/stops_rets.pkl
 data/trend_journal_ancien_format.csv
