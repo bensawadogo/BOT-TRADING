@@ -3,6 +3,16 @@
 *Mise à jour : 10/11/2026. L'historique de l'ancien bot Deriv (missions 1 à 5, ensemble de
 7 modèles, BOOM/CRASH) est dans le tag `archive/deriv-ensemble`.*
 
+## Point à une semaine (≈ 19/11/2026)
+Le bot tourne sans fenêtre ouverte : processus `main.py trend --live --loop` plus tâche planifiée
+« BOT-TRADING trend_bot » (ouverture de session et 06:45 UTC). À vérifier au point :
+- [ ] `data/trend_equity.csv` : un cycle par jour ouvré. Compter les cycles en retard dans
+  `logs/trend_bot.log` (le 11/11 le PC a dormi de 04:17 à 12:33 UTC : cycle passé à 12:37 au lieu de 07:00).
+- [ ] Équité de la démo contre celle du backtest sur la même période (`main.py dashboard`), sans conclure avant 63 jours.
+- [ ] Aucun ordre refusé (retcode différent de 10009, Algo Trading coupé) et coupe-circuit non déclenché (`tripped` dans `data/trend_state.json`).
+- [ ] Swaps réellement débités sur les positions contre le surcoût supposé par le backtest.
+- [ ] Côté PC (à faire par Ben) : minuteurs de réveil autorisés, pas de veille sur secteur, connexion automatique après redémarrage.
+
 ## Maintenant
 - [ ] **Démo de 3 mois** : boucle relancée le 10/11/2026 (`logs/trend_bot.log`). Le 09/11, 13 cycles
   refusés (Algo Trading coupé) puis le PC a redémarré et tué le bot : aucun ordre à ce jour. Restent à faire :
