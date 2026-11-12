@@ -1,119 +1,101 @@
-# CLAUDE.md - Guide de Transmission & Conventions du Projet
+# CLAUDE.md — Guide du projet
 
-> **Ce fichier sert de point d'entrée et de boussole pour Claude.**
-> Il synthétise l'architecture du projet, l'assainissement récent, les conventions non négociables et les tâches en cours.
+Point d'entrée pour Claude et tout contributeur : ce que fait le projet, où sont les
+choses, les règles à respecter, et l'état actuel.
 
----
+## 1. Le projet en bref
 
-## 📌 1. Vue d'ensemble du projet
+Un **bot de tendance multi-marchés** (`trend_bot/`) pour MetaTrader 5 (Deriv MT5 ou autre
+courtier), et un **labo de recherche** (`lab/`) qui teste les idées avant qu'elles
+n'arrivent dans le bot.
 
-Ce projet est un écosystème de **bot de trading algorithmique et quantitatif** multi-marchés (Deriv Synthetics, Forex, Crypto) orienté Machine Learning :
-- **Deriv (Synthetics & Forex)** : Cœur opérationnel actuel (`deriv/`).
-- **Intelligence Artificielle & ML** : HMM (Hidden Markov Models), XGBoost, LSTM, filtres de Kalman, et vote d'ensemble (règle 4/5).
-- **Validation Statistique** : Walk-Forward Optimization (WFO), CPCV (Combinatorial Purged Cross-Validation), détection de data leakage.
-- **Gestion du Risque** : `RiskManager` dynamique, Safe Stake, Daily Stop, arrêt après séries de pertes.
-- **Dashboard & Journal** : Interface Streamlit (`dashboard/app.py`), journal SQLite (`trading_journal.db`), alertes Telegram.
+- La stratégie : tendance 1/3/12 mois, volatilité cible du portefeuille 10 %/an, filtre de
+  régime (modèle à sauts), coupe-circuit de drawdown. Une décision par jour.
+- Statut : **démo uniquement** (`MT5_ALLOW_REAL=0`), pour valider la mécanique, pas un revenu.
+  **Aux coûts réels de Deriv MT5, le bot est à zéro depuis 1996 (Sharpe +0,06, +0,1 %/an) et
+  négatif depuis 2017 ; tout l'avantage du backtest 1985-2026 (Sharpe 0,28) vient de
+  1985-1995** (`docs/reports/VERIFICATION_LOGIQUE_2026-11-10.md`). Le filtre de régime réduit le
+  drawdown (42 % → 30 %) sans créer de rendement. Le compte sans swap n'est pas gratuit
+  (frais d'administration) : 2,8 %/an (`docs/reports/COMPTE_SANS_SWAP_2026-11-06.md`). Le signal de
+  portage ne passe pas chez Deriv ; sur futures sans swap il ferait 0,63 de Sharpe, décorrélé de la
+  tendance : seule piste au-dessus du seuil, sur un support non détenu (`docs/reports/PORTAGE_2026-11-10.md`). Tendance continue, désaccord
+  lent/rapide, régime adouci, Fibonacci : aucune variante ne bat le bot d'origine
+  (`docs/reports/ESSAIS_E0_E4_2026-11-06.md`). Le bot n'a aucun stop par position (seul le coupe-circuit du
+  portefeuille protège) : le stop serré gagne 0,03 de Sharpe sans être significatif et ne réduit pas les profits
+  rendus, les stops larges ne se déclenchent presque jamais (`docs/reports/STOPS_2026-11-12.md`). **124 autres marchés Deriv** (crypto, actions,
+  indices, métaux, ETF, agricoles, croisés) balayés le 10/11/2026 : aucun avantage de tendance,
+  31 perdants significatifs à cause des swaps ; la crypto gagne par bêta et fait moins bien
+  qu'acheter-et-garder (`docs/reports/SCAN_MARCHES_2026-11-10.md`). Le panier reste le forex + Nasdaq.
+- L'ancien bot Deriv (ensemble de 7 modèles, drift BOOM/CRASH, options binaires) n'avait
+  **aucun edge** mesuré : il est archivé sous le tag git `archive/deriv-ensemble`
+  (`git checkout archive/deriv-ensemble` pour le consulter). Ne pas le ressusciter.
 
----
-
-## 🧹 2. État d'assainissement récent (Octobre 2026)
-
-Le projet a fait l'objet d'un grand nettoyage pour éliminer la dette technique et la pollution générée par des exécutions antérieures :
-1. **Racine épurée** : Réduite de 140 fichiers à 12 fichiers vitaux.
-2. **Centralisation des logs** : Tous les `*.txt` d'exécution ont été déplacés dans `logs/` (ignoré par Git).
-3. **Rapports d'audit rangés** : Déplacés dans `docs/reports/` (`AUDIT_COMPLET.md`, `PHASE*_REPORT.md`, etc.).
-4. **Scripts déplacés** : Les scripts de tests/diagnostics autonomes (`measure_crash.py`, `deep_wfo_chain.py`, etc.) sont dans `scripts/`.
-5. **Fichiers déchets supprimés** : Élimination des scripts jetables (`write_test.py`, `gen_client.py`), verrous `.lock` orphelins, caches compilés et erreurs de redirection.
-6. **Git & Sécurité** : `.gitignore` renforcé pour protéger `.env`, les bases SQLite, les logs, les modèles et les dossiers tiers.
-
----
-
-## 📐 3. Architecture du Répertoire
+## 2. Arborescence
 
 ```text
-C:\BOT-TRADING\
-├── CLAUDE.md             # Ce guide de transmission
-├── AGENTS.md             # Conventions théoriques et techniques détaillées
-├── TASKS.md              # Suivi complet de la roadmap et des tâches
-├── RESEARCH.md           # État de l'art, sources académiques et papers
-├── main.py               # Point d'entrée de lancement du bot
-├── requirements.txt      # Dépendances du projet Python
-├── pytest.ini            # Configuration des tests unitaires
-├── .env                  # Configuration locale (JAMAIS COMMITTÉ)
-├── .env.example          # Gabarit des variables d'environnement
-├── state.json            # Suivi machine de l'état des phases
-│
-├── deriv/                # Module Deriv (Moteur principal)
-│   ├── bot.py            # Classe DerivBot (orchestration)
-│   ├── bot_executor.py   # Exécution des ordres & cycle en direct
-│   ├── ensemble_predictor.py # Modèle d'ensemble (XGB, LSTM, HMM...)
-│   ├── walk_forward_optimizer.py # Optimiseur WFO
-│   ├── risk_manager.py   # Contrôle du risque et taille de mise
-│   ├── strategies/       # Stratégies de trading (drift, momentum...)
-│   └── tests/            # Tests spécifiques du module deriv
-│
-├── intelligence/         # Modèles de régimes de marché (HMM, etc.)
-├── crypto/               # Stratégies et connecteurs crypto (HMMRegime...)
-├── dashboard/            # Interface Streamlit (app.py)
-├── forward/              # Sessions et résultats de forward testing
-├── backtests/            # Résultats de WFO et classements CSV
-├── scripts/              # Diagnostics, tests isolés, scripts batch (.bat)
-├── logs/                 # Tous les fichiers de logs et sorties de console
-├── docs/reports/         # Rapports d'audits et historiques de versions
-└── tests/                # Tests unitaires transversaux
+BOT-TRADING/                  (C:\Users\sawad\BOT-TRADING)
+├── main.py                   # python main.py [trend|dashboard] [--live] [--loop] [--reset] [--paper DIR]
+├── trend_bot/                # le bot
+│   ├── signals.py            # alpha : tendance, volatilité ex-ante, calendrier lun-ven
+│   ├── risk.py               # filtre de régime (ré-entraînement mensuel), coupe-circuit
+│   ├── portfolio.py          # poids (vol cible), lots, zone neutre
+│   ├── runner.py             # un cycle live : données → décisions → ordres → journal
+│   ├── backtest.py           # rejoue EXACTEMENT les mêmes fonctions sur l'historique
+│   ├── data.py               # séries FRED du backtest + correspondance avec les marchés
+│   ├── config.py             # panier, paramètres (.env), chemins
+│   └── brokers/              # mt5.py (MetaTrader5), paper.py (CSV, tests)
+├── lab/                      # recherche : moteur causal, HMM causal, Fibonacci, carry.py (portage), confirmation.py, stops.py
+├── dashboard/app.py          # Streamlit : lit le journal du bot, rien d'inventé
+├── scripts/                  # fetch_fred.py (données), couts_mt5.py (coûts réels), scan_marches.py (autres marchés),
+│                             # lancer_bot.ps1 (tâche planifiée : réveil 06:45 UTC, un seul exemplaire)
+├── docs/                     # TREND_BOT.md (guide), reports/ (audits et backtests datés)
+├── tests/                    # main.py, dashboard
+└── data/                     # local, ignoré par git : état, journal, équité, FRED
 ```
 
----
+## 3. Règles non négociables
 
-## ⚠️ 4. Règles & Conventions Critiques pour Claude
+1. **Le live trade ce qui a été backtesté.** `runner.py` et `backtest.py` appellent les
+   mêmes fonctions sur les mêmes séries. Le test `test_live_egale_backtest` le vérifie :
+   toute modification de la logique doit le garder vert. Ne jamais dupliquer une règle.
+2. **Calendrier lundi-vendredi** (`weekdays_only`). Deriv MT5 crée une bougie D1 le
+   dimanche sur le forex et les cryptos cotent 7 j/7 ; les horizons en bougies et
+   ANN = 252 supposent 5 jours par semaine.
+3. **Le panier par défaut = les marchés backtestés et tradables** (`config.UNIVERSE`).
+   Les énergies (swaps prohibitifs) et les marchés jamais testés ne sont tradés que sur
+   demande explicite (`TREND_SYMBOLS`).
+4. **Causalité** : une décision à la clôture t n'utilise que des données ≤ t. Tout
+   nouveau signal doit avoir un test « le futur ne change pas le passé ».
+5. **Une nouvelle stratégie doit battre le hasard après les coûts réels du courtier**
+   (spread relevé sur les ticks + swaps : `scripts/couts_mt5.py`), sur une période de
+   test jamais utilisée pour la régler. Sinon, elle ne va pas dans le bot.
+6. **Annonces et exécution** : le filtre d'annonces (`trend_bot/news.py`) ne fait que REPORTER
+   l'ouverture d'un ordre, jamais une réduction, et ne change pas les poids (live = backtest).
+   **Sécurité** : jamais de secret dans le code (`.env`, ignoré par git) ; compte réel
+   refusé sans `MT5_ALLOW_REAL=1` ; le bot ne touche qu'à SES positions (numéro magique).
+7. **Racine propre** : logs dans `logs/`, scripts dans `scripts/`, rapports datés dans
+   `docs/reports/`. Pas de fichier temporaire à la racine.
 
-### 4.1. Cible Anti-Biais de Dérive (Triple-Barrière) — INDISPENSABLE
-- **Ne JAMAIS utiliser** de target naïve `close[t+1] > close[t]` (mode `"sign"`) sur les indices synthétiques dérivants (comme `CRASH500 M1` où 89.8% des bougies sont haussières par construction). Cela crée une illusion de compétence (le modèle prédit toujours UP).
-- **Toujours utiliser** le mode **triple-barrière symétrique** :
-  ```python
-  build_labels(df, mode="triple_barrier", touch_mult=1.5, horizon=3)
-  ```
-  Le label 1 correspond à +1.5 ATR touché avant -1.5 ATR, 0 si -1.5 ATR touché d'abord, et les bougies sans contact sont exclues.
-  *(Consulter `AGENTS.md` pour les détails complets)*.
+## 4. Commandes
 
-### 4.2. Ne jamais polluer la racine
-- **Tout log** doit être écrit dans `logs/`.
-- **Tout script utilitaire ou expérimental** doit être placé dans `scripts/`.
-- **Aucun fichier temporaire** `.txt`, `.tmp`, ou micro-script de test ne doit rester à la racine.
+Prérequis : Python 3.12 ou 3.13 (le Python 3.14 système de cette machine plante dans
+`hmmlearn`), terminal MT5 installé et connecté pour le live.
 
-### 4.3. Sécurité & Sérialisation
-- **SafeUnpickler** : Ne jamais utiliser un `pickle.load()` brut non sécurisé. Toujours utiliser le chargeur sécurisé whitelisté du projet.
-- **Variables d'environnement** : Ne jamais stocker de jetons API ou mots de passe dans le code. Toujours passer par la classe `Config` ou `.env`.
-
----
-
-## 🚀 5. Commandes usuelles
-
-### Exécuter les tests unitaires
 ```powershell
-.venv\Scripts\python.exe -m pytest tests/ deriv/tests/ -q --tb=short
+py -3.13 -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+.venv\Scripts\python.exe -m pytest -q                       # tests
+.venv\Scripts\python.exe main.py                            # un cycle en simulation
+.venv\Scripts\python.exe main.py trend --live --loop        # démo : un cycle par jour
+.venv\Scripts\python.exe main.py dashboard                  # suivi
+.venv\Scripts\python.exe scripts\fetch_fred.py data\fred    # données du backtest
+.venv\Scripts\python.exe scripts\couts_mt5.py tendance      # coûts réels → data\couts_mt5.json
+.venv\Scripts\python.exe -m trend_bot.backtest data\fred data\couts_mt5.json
+.venv\Scripts\python.exe -m trend_bot.backtest data\fred data\couts_mt5.json --essais   # 5 essais, ≈ 50 min
+.venv\Scripts\python.exe scripts\scan_marches.py fetch|couts|run|classes   # balayage d'autres marchés (≈ 1 h 30)
 ```
 
-### Lancer le bot Deriv (mode dry-run sécurisé par défaut)
-```powershell
-.venv\Scripts\python.exe main.py deriv
-```
+## 5. Où en est le projet
 
-### Lancer le dashboard Streamlit
-```powershell
-.venv\Scripts\python.exe -m streamlit run dashboard/app.py
-```
-
-### Lancer une optimisation Walk-Forward (WFO)
-```powershell
-.venv\Scripts\python.exe deriv/walk_forward_optimizer.py --symbol frxEURUSD --target triple_barrier
-```
-
----
-
-## 📋 6. Prochaines étapes / Roadmap en cours
-
-Se référer en priorité à `TASKS.md` et `state.json` :
-1. **Forward Demo & Calibrage Réel** : Amélioration de la stratégie sur Forex réels (`frxEURUSD`, `frxUSDJPY`, `frxEURGBP`) et indices de volatilité (`R_50`, `R_75`), car le test sur `CRASH500 M1` a révélé l'absence d'edge exploitable en raison du spread et du drift asymétrique.
-2. **Dashboard Streamlit** : Poursuivre le monitoring en direct des positions, des métriques de régimes HMM et de la synchronisation avec `trading_journal.db`.
-3. **Validation Anti-Leakage continue** : S'assurer que chaque nouvelle feature passe la validation `deriv/tests/test_anti_leakage.py`.
+Voir `TASKS.md`. Les conclusions chiffrées sont dans `docs/reports/` (une conclusion =
+un rapport daté, jamais réécrit après coup).

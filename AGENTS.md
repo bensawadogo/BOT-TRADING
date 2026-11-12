@@ -1,63 +1,10 @@
-# AGENTS.md ó Conventions du bot Deriv (C:\BOT-TRADING)
+# AGENTS.md
 
-## Target (labels d'entraÓnement / Èvaluation WFO)
+Les conventions du projet sont dans **CLAUDE.md** (architecture, r√®gles, commandes) et
+l'√©tat des travaux dans **TASKS.md**. Les trois r√®gles √† ne jamais enfreindre :
 
-- **Avant** : `target = close[t+1] > close[t]` (target triviale UP/DOWN,
-  mode `build_labels(df)` = `mode="sign"`).
-  ? BiaisÈ par la dÈrive de l'indice : sur CRASH500 M1 (+0.012 %/min),
-  89.8 % des labels valent 1 ? le WR mesurait la dÈrive, pas une compÈtence
-  (audit 90 % : acc rÈelle 70.9 % = acc permutÈe 71.1 % = baseline UP 71.1 %).
-
-- **AprËs** (P0-v2, dÈfaut partout) : `target = triple-barriËre symÈtrique`
-  via `build_labels(df, mode="triple_barrier", touch_mult=1.5, horizon=3)`
-  (Èquivalent `atr_mult=1.5, horizon=3`) :
-  ? label **1** si le prix touche **+1.5◊ATR** avant -1.5◊ATR dans les
-  `horizon` bougies ;
-  ? label **0** si le prix touche **-1.5◊ATR** avant +1.5◊ATR ;
-  ? label **ÈliminÈ** (pas de trade) si ni l'une ni l'autre barriËre n'est
-  touchÈe dans l'horizon.
-  ? Les deux barriËres sont symÈtriques ? le biais de drift disparaÓt
-  (baseline mesurÈe : 0.513 sur frxEURUSD H4 vs 0.898 en target triviale).
-
-- **O˘ c'est appliquÈ** :
-  - `deriv/ensemble_predictor.py` : `XGBoostPredictor.train()` et
-    `LSTMPredictor.train()` (labels d'entraÓnement) ;
-  - `deriv/walk_forward_optimizer.py` : `WalkForwardOptimizer.run()`
-    (dÈfaut `target_mode="triple_barrier"`), `_evaluate()` (labels
-    out-of-sample via `build_labels`, baseline dÈrive conservÈe ‡ part dans
-    `up_rate`), CLI `--target {triple_barrier,sign,crash}`
-    (dÈfaut `triple_barrier`) ;
-  - `deriv/tests/test_anti_leakage.py` :
-    `TestTripleBarriereAntiDrift` (ratio 0.35ñ0.65 sur dataset driftÈ).
-
-- **Legacy** : `mode="sign"` (close[t+1] > close[t]) reste disponible pour
-  compatibilitÈ (`--target sign`), `mode="crash"` pour la cible asymÈtrique
-  CRASH500 (P(crash)).
-
-## Quick Start
-
-1. Installer les dÈpendances : `pip install -r requirements.txt`
-2. Configurer `.env` (voir `.env.example`)
-3. Lancer les tests : `pytest tests/ deriv/tests/`
-4. Lancer le bot : `python deriv/bot_executor.py`
-5. Lancer le dashboard : `streamlit run dashboard/app.py`
-
-## Architecture
-
-- `deriv/client.py` : Connexion WebSocket Deriv
-- `deriv/risk_manager.py` : Gestion du capital et des rËgles de risque
-- `deriv/bot_executor.py` : Orchestrateur principal (collecte -> ensemble -> risk -> execution)
-- `deriv/ensemble_predictor.py` : Croisement 5 modËles (HMM, XGBoost, LSTM, Kalman, RSI)
-- `deriv/online_learner.py` : Apprentissage online (River)
-- `deriv/weekly_retrain.py` : RÈ-entraÓnement hebdomadaire
-- `deriv/strategies/` : StratÈgies (rise_fall, boom_crash_drift, regime_momentum, over_under, digit_diff)
-- `dashboard/app.py` : Dashboard Streamlit
-- `forward/` : Forward demo et analyse
-
-## Configuration
-
-Variables .env principales :
-- DERIV_APP_ID, DERIV_API_TOKEN, DERIV_SYMBOL, DERIV_DUR, DERIV_ACCOUNT_TYPE
-- CAPITAL_USD, AUTO_STAKE, MAX_RISK_PCT, DAILY_STOP_PCT, MAX_CONSECUTIVE
-- TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
-- RUN_NETWORK_TESTS=0 (mettre ‡ 1 pour activer les tests rÈseau)
+1. Le live (`trend_bot/runner.py`) et le backtest (`trend_bot/backtest.py`) appellent les
+   m√™mes fonctions ; `test_live_egale_backtest` doit rester vert.
+2. Une strat√©gie n'entre dans le bot que si elle bat le hasard apr√®s les co√ªts r√©els du
+   courtier (`scripts/couts_mt5.py`), sur une p√©riode de test jamais utilis√©e pour la r√©gler.
+3. Aucun secret dans le code ; aucun compte r√©el sans `MT5_ALLOW_REAL=1`.

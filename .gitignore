@@ -3,21 +3,34 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .streamlit/
-deriv/models/
-.env*
-.env.*
-state.json
-.kilo/
 logs/
 *.lock
 *.bak
 *.tmp
 tmp/
 *.db
-*.sqlite3
 
-# Dépôts tiers clonés (conservés en local)
-research/clones/
-crypto/source/
-deriv/source/
-intelligence/source/
+# Secrets : seul le gabarit est suivi
+.env
+.env.*
+!.env.example
+
+# État, journal et données du bot (locaux)
+data/trend_state.json
+data/trend_journal.csv
+data/trend_equity.csv
+data/paper_broker.json
+data/couts_mt5.json
+data/fred/
+
+# balayage de marchés (scripts/scan_marches.py) : données locales regénérables
+data/yahoo/
+data/couts_scan.json
+data/scan_*
+data/regimes_1985.pkl
+data/news_cache.json
+data/*.db
+data/carry_rets.pkl
+data/confirmation_rets.pkl
+data/stops_rets.pkl
+data/trend_journal_ancien_format.csv
